@@ -62,37 +62,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download release artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: raffley-release
-          path: .
+      - name: Validate inputs
+        run: |
+          echo "Verifying required secrets..."
+          if [ -z "${{ secrets.VPS_DEPLOY_PATH }}" ]; then
+            echo "Error: VPS_DEPLOY_PATH secret is empty"
+            echo "Please set this in GitHub repository secrets with the absolute path"
+            echo "For example: /home/ubuntu/raffley"
+            echo ""
+            echo "To fix:"
+            echo "1. Go to: Settings → Secrets and variables → Actions"
+            echo "2. Add new repository secret named VPS_DEPLOY_PATH"
+            echo "3. Enter the full deployment path"
+            exit 1
+          fi
 
-      # Debug step - verify SSH connectivity first
-      - name: Verify SSH access
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_SSH_USER }}
-          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          script: |
-            echo "✅ SSH connection successful"
-            echo "Current user: $(whoami)"
-            echo "Home directory: $HOME"
-            echo "Working directory: $(pwd)"
-            echo "Environment variables:"
-            printenv | sort
-            echo "Checking write permission to ${{ secrets.VPS_DEPLOY_PATH }}"
-            mkdir -p "${{ secrets.VPS_DEPLOY_PATH }}"
-            touch "${{ secrets.VPS_DEPLOY_PATH }}/testfile" && \
-              rm "${{ secrets.VPS_DEPLOY_PATH }}/testfile" && \
-              echo "✅ Write permission verifi            echo "## PRE-DEPLOYMENT CHECKS ##"
+          echo "✓ VPS_DEPLOY_PATH is set to: ${{ secrets.VPS_DEPLOY_PATH }}"
+          echo "### Directory Verification ###"
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "Critical: DEPLOY_PATH is empty!"
+              echo "This means GitHub isn't passing the secret properly"
+              echo ""
+              echo "Double check:"
+              echo "1. The VPS_DEPLOY_PATH secret is set in GitHub"
+              echo "2. The secret name matches exactly (case-sensitive)"
+              echo "3. The secret has a valid absolute path value"
+              exit 1
+            fi
+
+            echo "Checking write permission to: $DEPLOY_PATH"
+            mkdir -p "$DEPLOY_PATH" || {
+              echo "Failed to create directory"
+              echo "Try creating manually on your VPS:"
+              echo "  sudo mkdir -p '$DEPLOY_PATH'"
+              echo "  sudo chown -R $USER:$USER '$DEPLOY_PATH'"
+              exit 1
+            }
+
+            touch "$DEPLOY_PATH/deploy_test" || {
+              echo "Cannot write to $DEPLOY_PATH"
+              echo "Current permissions:"
+              ls -ld "$DEPLOY_PATH"
+              echo ""
+              echo "Required fixes (run on VPS):"
+              echo "1. sudo mkdir -p '$DEPLOY_PATH'"
+              echo "2. sudo chown -R $USER:$USER '$DEPLOY_PATH'"
+              echo "3. sudo chmod 755 '$DEPLOY_PATH'"
+              exit 1
+            }
+            rm "$DEPLOY_PATH/deploy_test"
+            echo "Verified write access to $DEPLOY_PATH"
             echo "1. Checking target directory permissions:"
             ls -ld "$DEPLOY_PATH" || echo "Directory doesn't exist"
             
             echo "2. Verifying write access:"
             if ! touch "$DEPLOY_PATH/.deploy_test" 2>/dev/null; then
-              echo "❌ Cannot write to $DEPLOY_PATH"
+              echo "Cannot write to $DEPLOY_PATH"
               echo "Current permissions:"
               ls -ld "$DEPLOY_PATH"
               echo "Suggested fix (run on VPS):"
@@ -101,17 +126,17 @@ jobs:
               exit 1
             else
               rm "$DEPLOY_PATH/.deploy_test"
-              echo "✅ Write access verified"
+              echo "Write access verified"
             fi
             
             echo "3. Checking sudo privileges:"
             if ! sudo -n true 2>/dev/null; then
-              echo "❌ Passwordless sudo access required"
+              echo "Passwordless sudo access required"
               echo "Run on VPS: sudo visudo"
               echo "Add line: $USER ALL=(ALL) NOPASSWD: ALL"
               exit 1
             fi
-            echo "✅ Sudo access verified"
+            echo "Sudo access verified"
 
             echo "## SERVICE MANAGEMENT ##"
             echo "1. Checking current service status:"
@@ -131,7 +156,7 @@ jobs:
             tar -xzf "$DEPLOY_PATH/$RELEASE_TAR" -C "$RELEASE_DIR"
             rm "$DEPLOY_PATH/$RELEASE_TAR"
             
-            echo "🔐 Setting proper permissions..."
+            echo "Setting proper permissions..."
             find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
             find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
             chmod +x "$RELEASE_DIR/bin/$RELEASE_NAME"
