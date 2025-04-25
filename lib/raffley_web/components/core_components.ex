@@ -361,7 +361,6 @@ defmodule RaffleyWeb.CoreComponents do
     </table>
     """
   end
-
   @doc """
   Renders a data list.
 
