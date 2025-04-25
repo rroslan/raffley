@@ -1,16 +1,24 @@
+# .github/workflows/deploy.yml
 name: Deploy Raffley to VPS
+
 env:
   MIX_ENV: prod
+  # Define consistent names used across jobs
+  RELEASE_NAME: raffley
+  TAR_FILENAME: release.tar.gz
+  # Specify Elixir/OTP versions once
+  ELIXIR_VERSION: '1.18' # Or your specific version e.g., '1.18.0'
+  OTP_VERSION: '27'      # Or your specific version e.g., '27.0'
 
 # Required GitHub Secrets:
 # - VPS_HOST: Hostname/IP of your VPS server
 # - VPS_SSH_USER: SSH username for VPS access
-# - VPS_SSH_PRIVATE_KEY: SSH private key for authentication
-# - VPS_DEPLOY_PATH: Absolute path to deployment directory on VPS
-# - SECRET_KEY_BASE: Phoenix secret key base
-# - DATABASE_URL: Database connection string
-# - RESEND_API_KEY: API key for Resend email service
-# - PHX_HOST: Hostname for the application
+# - VPS_SSH_PRIVATE_KEY: SSH private key (RAW content, NOT base64)
+# - VPS_DEPLOY_PATH: Absolute path to the base deployment directory on VPS (e.g., /home/deploy/raffley)
+# - SECRET_KEY_BASE: Phoenix secret key base (Needed on VPS runtime)
+# - DATABASE_URL: Database connection string (Needed on VPS runtime)
+# - RESEND_API_KEY: API key for Resend email service (Needed on VPS runtime)
+# - PHX_HOST: Hostname for the application (Needed on VPS runtime)
 
 on:
   push:
@@ -28,160 +36,181 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: '1.18'
-          otp-version: '27'
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
       - name: Cache Mix dependencies
+        id: mix-cache # Give cache step an ID
         uses: actions/cache@v4
         with:
           path: |
             deps
             _build
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
 
-      - name: Compile project
-        run: mix compile --force
+      - name: Install Mix dependencies
+        # Only run if cache missed to speed up builds
+        if: steps.mix-cache.outputs.cache-hit != 'true'
+        run: mix deps.get --only prod
+
+      # Optional: Compile assets if your project requires it before release
+      # - name: Install Node.js (if needed for assets)
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20' # Specify your Node.js version
+      #     cache: 'npm'
+      #     cache-dependency-path: 'assets/package-lock.json' # Adjust path if needed
+      # - name: Install Node dependencies
+      #   run: npm ci --prefix assets # Adjust path if needed
+      # - name: Compile assets
+      #   run: mix assets.deploy
 
       - name: Build release
+        # Pass secrets needed ONLY at build time here if necessary
+        # env:
+        #   SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }} # Example
         run: mix release --overwrite
 
       - name: Archive release artifact
         run: |
-          RELEASE_NAME=$(ls _build/prod/rel/)
-          tar -czf release.tar.gz -C _build/prod/rel/$RELEASE_NAME .
+          RELEASE_BUILD_PATH="_build/prod/rel/${{ env.RELEASE_NAME }}"
+          tar -czf ${{ env.TAR_FILENAME }} -C "$RELEASE_BUILD_PATH" .
+          echo "Created artifact: ${{ env.TAR_FILENAME }}"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: raffley-release
-          path: release.tar.gz
+          name: ${{ env.RELEASE_NAME }}-release-artifact # Use a descriptive name
+          path: ${{ env.TAR_FILENAME }}
+          retention-days: 1 # Keep artifacts for 1 day
 
   deploy:
     name: Deploy to VPS
-    needs: build
+    needs: build # Run only after the build job succeeds
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate inputs
+      - name: Validate Secrets Presence
         run: |
-          echo "Verifying required secrets..."
-          if [ -z "${{ secrets.VPS_DEPLOY_PATH }}" ]; then
-            echo "Error: VPS_DEPLOY_PATH secret is empty"
-            echo "Please set this in GitHub repository secrets with the absolute path"
-            echo "For example: /home/ubuntu/raffley"
-            echo ""
-            echo "To fix:"
-            echo "1. Go to: Settings → Secrets and variables → Actions"
-            echo "2. Add new repository secret named VPS_DEPLOY_PATH"
-            echo "3. Enter the full deployment path"
-            exit 1
-          fi
+          echo "Checking required secrets..."
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then echo "Error: VPS_HOST secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_SSH_USER }}" ]; then echo "Error: VPS_SSH_USER secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_SSH_PRIVATE_KEY }}" ]; then echo "Error: VPS_SSH_PRIVATE_KEY secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_DEPLOY_PATH }}" ]; then echo "Error: VPS_DEPLOY_PATH secret missing"; exit 1; fi
+          echo "Required deployment secrets seem present."
+          echo "Note: Runtime secrets (SECRET_KEY_BASE, DATABASE_URL, etc.) must be configured on the VPS."
 
-          echo "✓ VPS_DEPLOY_PATH is set to: ${{ secrets.VPS_DEPLOY_PATH }}"
-          echo "### Directory Verification ###"
-            if [ -z "$DEPLOY_PATH" ]; then
-              echo "Critical: DEPLOY_PATH is empty!"
-              echo "This means GitHub isn't passing the secret properly"
-              echo ""
-              echo "Double check:"
-              echo "1. The VPS_DEPLOY_PATH secret is set in GitHub"
-              echo "2. The secret name matches exactly (case-sensitive)"
-              echo "3. The secret has a valid absolute path value"
-              exit 1
-            fi
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.RELEASE_NAME }}-release-artifact # Match the upload name
+          # Downloads to the current directory by default
 
-            echo "Checking write permission to: $DEPLOY_PATH"
-            mkdir -p "$DEPLOY_PATH" || {
-              echo "Failed to create directory"
-              echo "Try creating manually on your VPS:"
-              echo "  sudo mkdir -p '$DEPLOY_PATH'"
-              echo "  sudo chown -R $USER:$USER '$DEPLOY_PATH'"
-              exit 1
-            }
+      - name: List downloaded files # Debug step
+        run: ls -lh
 
-            touch "$DEPLOY_PATH/deploy_test" || {
-              echo "Cannot write to $DEPLOY_PATH"
-              echo "Current permissions:"
-              ls -ld "$DEPLOY_PATH"
-              echo ""
-              echo "Required fixes (run on VPS):"
-              echo "1. sudo mkdir -p '$DEPLOY_PATH'"
-              echo "2. sudo chown -R $USER:$USER '$DEPLOY_PATH'"
-              echo "3. sudo chmod 755 '$DEPLOY_PATH'"
-              exit 1
-            }
-            rm "$DEPLOY_PATH/deploy_test"
-            echo "Verified write access to $DEPLOY_PATH"
-            echo "1. Checking target directory permissions:"
-            ls -ld "$DEPLOY_PATH" || echo "Directory doesn't exist"
-            
-            echo "2. Verifying write access:"
-            if ! touch "$DEPLOY_PATH/.deploy_test" 2>/dev/null; then
-              echo "Cannot write to $DEPLOY_PATH"
-              echo "Current permissions:"
-              ls -ld "$DEPLOY_PATH"
-              echo "Suggested fix (run on VPS):"
-              echo "  sudo mkdir -p '$DEPLOY_PATH'"
-              echo "  sudo chown -R $USER:$USER '$DEPLOY_PATH'"
-              exit 1
+      - name: Deploy release to server via SCP
+        uses: appleboy/scp-action@v1.0.0 # Use specific version
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }} # IMPORTANT: Use the RAW private key content, NOT base64 encoded
+          # port: ${{ secrets.SSH_PORT || 22 }} # Uncomment and set secret if using non-standard port
+          source: ${{ env.TAR_FILENAME }}
+          target: "/tmp" # Copy artifact to a temporary location on the VPS
+
+      - name: Execute remote deployment commands
+        uses: appleboy/ssh-action@v1.0.3 # Use specific version
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }} # IMPORTANT: Use the RAW private key content
+          # port: ${{ secrets.SSH_PORT || 22 }} # Uncomment if needed
+          script: |
+            set -e # Exit immediately if a command exits with a non-zero status. Helps catch errors early.
+
+            # --- Configuration ---
+            # Use secrets/env vars passed from the workflow
+            DEPLOY_BASE_PATH="${{ secrets.VPS_DEPLOY_PATH }}" # e.g., /home/deploy/raffley
+            RELEASE_NAME="${{ env.RELEASE_NAME }}"           # e.g., raffley
+            TAR_FILENAME="${{ env.TAR_FILENAME }}"           # e.g., release.tar.gz
+            # Define paths on the remote server
+            REMOTE_TMP_TAR_PATH="/tmp/$TAR_FILENAME"         # Where SCP placed the file
+            RELEASES_DIR="$DEPLOY_BASE_PATH/releases"        # Directory to store versioned releases
+            CURRENT_RELEASE_DIR="$RELEASES_DIR/$(date +%Y%m%d%H%M%S)" # Unique dir for this deployment
+            CURRENT_SYMLINK="$DEPLOY_BASE_PATH/current"      # Symlink pointing to the active release
+            SERVICE_NAME="$RELEASE_NAME.service"             # Assumed systemd service name
+
+            echo "--- Deployment Started ---"
+            echo "Deploy Base Path: $DEPLOY_BASE_PATH"
+            echo "Release Name: $RELEASE_NAME"
+            echo "Target Release Dir: $CURRENT_RELEASE_DIR"
+            echo "Service Name: $SERVICE_NAME"
+            echo "Remote Tarball Path: $REMOTE_TMP_TAR_PATH"
+
+            echo "1. Creating directories..."
+            mkdir -p "$CURRENT_RELEASE_DIR"
+
+            echo "2. Extracting release from $REMOTE_TMP_TAR_PATH to $CURRENT_RELEASE_DIR..."
+            tar -xzf "$REMOTE_TMP_TAR_PATH" -C "$CURRENT_RELEASE_DIR"
+
+            echo "3. Removing temporary tarball..."
+            rm "$REMOTE_TMP_TAR_PATH"
+
+            # --- Runtime Environment Setup ---
+            # IMPORTANT: Ensure your runtime secrets (DATABASE_URL, SECRET_KEY_BASE, etc.)
+            # are available to the application here. Common methods:
+            # a) Systemd EnvironmentFile=: Point service file to an env file.
+            # b) .env file: Create a .env file in $CURRENT_RELEASE_DIR or $DEPLOY_BASE_PATH
+            #    and modify the release start script (`bin/raffley`) or systemd service
+            #    to source it. Example for .env file:
+            # echo "Creating .env file (ensure secrets are configured on VPS)..."
+            # ENV_FILE_PATH="$DEPLOY_BASE_PATH/.env" # Or $CURRENT_RELEASE_DIR/.env
+            # touch "$ENV_FILE_PATH" # Create if not exists
+            # chmod 600 "$ENV_FILE_PATH" # Secure permissions
+            # You would typically manage the content of this file outside the deploy script
+            # or securely copy/generate it.
+
+            echo "4. Running database migrations..."
+            # Use the specific path to the executable in the newly extracted release
+            # The necessary ENV VARS (like DATABASE_URL) must be available for this command
+            "$CURRENT_RELEASE_DIR/bin/$RELEASE_NAME" eval "Raffley.Release.migrate"
+
+            echo "5. Updating current release symlink..."
+            ln -sfn "$CURRENT_RELEASE_DIR" "$CURRENT_SYMLINK"
+
+            # Optional: Set ownership if your app runs as a different user
+            # DEPLOY_USER=$(whoami) # Or specify the user e.g., 'www-data'
+            # sudo chown -R $DEPLOY_USER:$DEPLOY_USER "$CURRENT_RELEASE_DIR"
+            # sudo chown -h $DEPLOY_USER:$DEPLOY_USER "$CURRENT_SYMLINK" # -h for symlink itself
+
+            echo "6. Restarting service ($SERVICE_NAME)..."
+            # Use restart instead of stop/start for smoother transition if possible
+            sudo systemctl restart "$SERVICE_NAME"
+
+            echo "7. Verifying service status..."
+            sleep 5 # Give the service a moment to stabilize
+            if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
+              echo "✅ Service '$SERVICE_NAME' is active."
             else
-              rm "$DEPLOY_PATH/.deploy_test"
-              echo "Write access verified"
+              echo "❌ Service '$SERVICE_NAME' failed to start!"
+              echo "Check logs on the server: sudo journalctl -u $SERVICE_NAME -n 50 --no-pager"
+              exit 1 # Fail the deployment step
             fi
-            
-            echo "3. Checking sudo privileges:"
-            if ! sudo -n true 2>/dev/null; then
-              echo "Passwordless sudo access required"
-              echo "Run on VPS: sudo visudo"
-              echo "Add line: $USER ALL=(ALL) NOPASSWD: ALL"
-              exit 1
-            fi
-            echo "Sudo access verified"
 
-            echo "## SERVICE MANAGEMENT ##"
-            echo "1. Checking current service status:"
-            sudo systemctl status "$RELEASE_NAME.service" || true
-            
-            echo "2. Stopping service..."
-            if ! sudo systemctl stop "$RELEASE_NAME.service"; then
-              echo "⚠ Failed to stop service (may not exist yet)"
-            fi
-            echo "--- Cleaning Previous Deployment ---"
-            [ -d "$RELEASE_DIR" ] && rm -rf $RELEASE_DIR/*
-            [ -d "$RELEASE_DIR" ] && rm -rf $RELEASE_DIR/*
-            mkdir -p "$RELEASE_DIR"
+            # Optional: Cleanup old releases (keep last 3)
+            echo "8. Cleaning up old releases (keeping last 3)..."
+            cd "$RELEASES_DIR" && ls -t | tail -n +4 | xargs --no-run-if-empty sudo rm -rf
 
-            echo "--- Deploying New Release ---"
-            mv "$RELEASE_TAR" "$DEPLOY_PATH/"
-            tar -xzf "$DEPLOY_PATH/$RELEASE_TAR" -C "$RELEASE_DIR"
-            rm "$DEPLOY_PATH/$RELEASE_TAR"
-            
-            echo "Setting proper permissions..."
-            find "$RELEASE_DIR" -type d -exec chmod 755 {} \;
-            find "$RELEASE_DIR" -type f -exec chmod 644 {} \;
-            chmod +x "$RELEASE_DIR/bin/$RELEASE_NAME"
-            echo "--- Running Database Migrations ---"
-            $RELEASE_DIR/bin/$RELEASE_NAME eval "Raffley.Release.migrate"
+            echo "--- Deployment Successful ---"
 
-            echo "--- Starting Service ---"
-            sudo systemctl start $RELEASE_NAME.service
-
-            echo "--- Verifying Deployment ---"
-            sleep 5
-            systemctl is-active --quiet $RELEASE_NAME.service || \
-              (echo "Service failed to start"; exit 1)
-            echo "Deployment successful!"
-
-            # Remote health check (optional)
-            # curl -sSf http://localhost:4000/health >/dev/null || \
-            #   (echo "Health check failed"; exit 1)
-
+      # Optional: Add more specific notification steps
       - name: Notify Success
         if: success()
-        run: echo "Deployment completed successfully"
-        # Could add Slack/Email notification here
+        run: echo "✅ Deployment to ${{ secrets.VPS_HOST }} completed successfully."
 
       - name: Notify Failure
         if: failure()
-        run: echo "Deployment failed"
-        # Could add error notification here
+        run: echo "❌ Deployment to ${{ secrets.VPS_HOST }} failed."
