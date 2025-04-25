@@ -74,19 +74,21 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: '\
-            DEPLOY_PATH:${{ secrets.VPS_DEPLOY_PATH }},\
-            RELEASE_NAME:${{ secrets.RELEASE_NAME }}'
+          envs: |
+            DEPLOY_PATH=${{ secrets.VPS_DEPLOY_PATH }}
+            RELEASE_NAME=${{ secrets.RELEASE_NAME || 'raffley' }}
           script: |
             # Verify required environment variables
             if [ -z "$DEPLOY_PATH" ]; then
-              echo "Error: DEPLOY_PATH not set"
+              echo "❌ Error: DEPLOY_PATH not set. Please set the VPS_DEPLOY_PATH secret in GitHub"
+              echo "ℹ Deployment path should be absolute (e.g. /home/user/raffley)"
               exit 1
             fi
 
-            if [ -z "$RELEASE_NAME" ]; then
-              RELEASE_NAME="raffley"
-            fi
+            # Set default release name
+            RELEASE_NAME="${RELEASE_NAME:-raffley}"
+            echo "ℹ Using release name: $RELEASE_NAME"
+            echo "ℹ Deployment path: $DEPLOY_PATH"
 
             RELEASE_DIR="$DEPLOY_PATH/_build/prod/rel/$RELEASE_NAME"
             RELEASE_TAR="release.tar.gz"
