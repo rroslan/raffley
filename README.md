@@ -11,6 +11,7 @@ Ready to run in production? Please [check our deployment guides](https://hexdocs
 
 ## Learn more
 
+* SET UP CI/CD
 * Official website: https://www.phoenixframework.org/
 * Guides: https://hexdocs.pm/phoenix/overview.html
 * Docs: https://hexdocs.pm/phoenix
