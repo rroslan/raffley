@@ -1,141 +1,58 @@
-name: Deploy Raffley to VPS
+- name: Deploy to VPS via SSH
+uses: appleboy/ssh-action@v1.0.3
+with:
+  host: ${{ secrets.VPS_HOST }}
+  username: ${{ secrets.VPS_SSH_USER }}
+  key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+  # Use the corrected script block below
+  script: |
+    # Variables
+    DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}" # e.g., /home/ubuntu/raffley
+    RELEASE_TAR="release.tar.gz" # This file is in the current working dir transferred by ssh-action
+    # --- IMPORTANT: Adjust 'raffley' below if your actual release name inside _build/prod/rel differs ---
+    RELEASE_NAME="raffley" # Assuming this is the name Mix uses for the release dir
+    RELEASE_DIR="$DEPLOY_PATH/_build/prod/rel/$RELEASE_NAME"
 
-# Trigger the workflow on push events to the main branch
-on:
-  push:
-    branches:
-      - main # Or your production branch
+    echo "--- Stopping Raffley Service ---"
+    # Add || true or similar to prevent failure if service isn't running
+    sudo systemctl stop raffley.service || echo "Service already stopped or failed to stop."
 
-# Environment variables available to all jobs
-env:
-  MIX_ENV: prod
-  # Add other env vars needed during build time if necessary
-  # Note: Secrets needed *only* on the VPS should be set there, not here.
-  # These are needed for mix assets.deploy potentially
-  SECRET_KEY_BASE: ${{ secrets.SECRET_KEY_BASE }}
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-  PHX_HOST: ${{ secrets.PHX_HOST }}
+    echo "--- Preparing Deployment Directory ---"
+    # Ensure the base deployment path exists
+    mkdir -p $DEPLOY_PATH
+    # Ensure the target release directory exists and clear old contents
+    mkdir -p $RELEASE_DIR
+    rm -rf $RELEASE_DIR/*
 
-jobs:
-  build:
-    name: Build Release
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    echo "--- Extracting Release ---"
+    # Extract the tarball from the current directory directly into the target release directory
+    # The tarball (release.tar.gz) should be in the PWD set up by ssh-action
+    if [ -f "$RELEASE_TAR" ]; then
+      # Use -C to change directory *for extraction*
+      tar -xzf $RELEASE_TAR -C $RELEASE_DIR
+      echo "--- Cleaning up transferred tarball ---"
+      # Remove the tarball from the current working directory
+      rm $RELEASE_TAR
+    else
+      echo "ERROR: Release tarball $RELEASE_TAR not found in workspace!"
+      exit 1 # Exit script if tarball isn't found
+    fi
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    echo "--- Running Database Migrations ---"
+    # Ensure the user running the service (or sudo) has necessary ENV VARS
+    # Check your systemd unit file for EnvironmentFile or Environment directives
+    # Using sudo directly might work if the service user is correctly configured
+    # Make sure the executable path is correct: $RELEASE_DIR/bin/$RELEASE_NAME
+    sudo $RELEASE_DIR/bin/$RELEASE_NAME eval "Raffley.Release.migrate"
 
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
-        with:
-          elixir-version: '1.17' # Use your project's Elixir version
-          otp-version: '27'    # Use your project's OTP version
+    echo "--- Reloading Systemd ---"
+    # Reload systemd in case the service file itself was part of the deploy (or just good practice)
+    sudo systemctl daemon-reload
 
- #     - name: Set up Node.js for assets
- #       uses: actions/setup-node@v4
- #       with:
- #         node-version: '20' # Use the Node.js version needed for your assets
+    echo "--- Starting Raffley Service ---"
+    sudo systemctl start raffley.service
 
-      # Cache dependencies to speed up subsequent builds
-      - name: Cache Mix dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-
-
-#      - name: Cache Node.js dependencies
-#        uses: actions/cache@v4
-#        with:
-#          path: assets/node_modules # Adjust if your assets dir is different
-#          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }} # Adjust lock file name if needed
-#          restore-keys: |
-#            ${{ runner.os }}-node-
-
-      - name: Install Mix dependencies
-        run: mix deps.get --only prod
-
-#      - name: Install Node.js dependencies
-#        run: npm install --prefix assets # Adjust if your assets dir is different
-
-      - name: Compile project
-        run: mix compile --force # Force compilation in CI
-
-      - name: Deploy assets
-        run: mix assets.deploy
-
-      - name: Build release
-        run: mix release --overwrite # Overwrite previous release build if any
-
-      # Tar the release artifact to make copying easier
-      - name: Archive release artifact
-        run: |
-          RELEASE_NAME=$(ls _build/prod/rel/) # Get the release directory name (e.g., raffley)
-          tar -czf release.tar.gz -C _build/prod/rel/$RELEASE_NAME .
-
-      # Upload the artifact so the deploy job can use it
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: raffley-release
-          path: release.tar.gz
-
-  deploy:
-    name: Deploy to VPS
-    needs: build # Run only after the build job succeeds
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download release artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: raffley-release
-
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_SSH_USER }}
-          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          script: |
-            # Variables
-            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}" # e.g., /home/ubuntu/raffley
-            RELEASE_TAR="release.tar.gz"
-            RELEASE_DIR="$DEPLOY_PATH/_build/prod/rel/raffley" # Adjust 'raffley' if release name differs
-
-            echo "--- Stopping Raffley Service ---"
-            sudo systemctl stop raffley.service
-
-            echo "--- Transferring Release ---"
-            # Note: ssh-action automatically transfers the workspace files.
-            # We need to move the downloaded tarball to the target location.
-            # Ensure the target directory exists
-            mkdir -p $DEPLOY_PATH
-            mv $RELEASE_TAR $DEPLOY_PATH/
-
-            echo "--- Extracting Release ---"
-            # Ensure the release directory exists and clear old contents
-            mkdir -p $RELEASE_DIR
-            rm -rf $RELEASE_DIR/*
-            tar -xzf $DEPLOY_PATH/$RELEASE_TAR -C $RELEASE_DIR
-            rm $DEPLOY_PATH/$RELEASE_TAR # Clean up the tarball
-
-            echo "--- Running Database Migrations ---"
-            # Make sure the path and command are correct for your setup
-            # Also ensure the user running this has the necessary ENV VARS (DATABASE_URL etc.)
-            # Often these are set via the systemd service EnvironmentFile,
-            # so running eval might need those vars sourced or passed explicitly if not using systemd's env.
-            # Consider if migrations should run *before* stopping the old service for zero-downtime.
-            sudo $RELEASE_DIR/bin/raffley eval "Raffley.Release.migrate"
-
-            echo "--- Starting Raffley Service ---"
-            sudo systemctl start raffley.service
-
-            echo "--- Deployment Complete ---"
-            # Optional: Check status briefly
-            sleep 5 # Give it a moment to start
-            sudo systemctl status raffley.service --no-pager
+    echo "--- Deployment Complete ---"
+    # Optional: Check status briefly
+    sleep 5 # Give it a moment to start
+    sudo systemctl status raffley.service --no-pager || echo "Service status check failed."
