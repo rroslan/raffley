@@ -137,9 +137,9 @@ jobs:
             DEPLOY_BASE_PATH="${{ secrets.VPS_DEPLOY_PATH }}" # e.g., /home/deploy/raffley
             RELEASE_NAME="${{ env.RELEASE_NAME }}"           # e.g., raffley
             TAR_FILENAME="${{ env.TAR_FILENAME }}"
-            DATABASE_URL="${{ secrets.DATABASE_URL}}"
-            RESEND_API_KEY="${{secrets.RESEND_API_KEY}}"
-            SECRET_KEY_BASE="${{secrets.SECRET_KEY_BASE}}"           # e.g., release.tar.gz
+            DATABASE_URL="${{ secrets.DATABASE_URL }}"
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
+            SECRET_KEY_BASE="${{ secrets.SECRET_KEY_BASE }}"           # e.g., release.tar.gz
             # Define paths on the remote server
             REMOTE_TMP_TAR_PATH="/tmp/$TAR_FILENAME"         # Where SCP placed the file
             RELEASES_DIR="$DEPLOY_BASE_PATH/releases"        # Directory to store versioned releases
