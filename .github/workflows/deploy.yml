@@ -68,57 +68,59 @@ jobs:
           name: raffley-release
           path: .
 
-      - name: Deploy to VPS via SSH
+      # Debug step - verify SSH connectivity first
+      - name: Verify SSH access
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_SSH_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: |
-            DEPLOY_PATH=${{ secrets.VPS_DEPLOY_PATH }}
-            RELEASE_NAME=${{ secrets.RELEASE_NAME || 'raffley' }}
           script: |
-            # Verify required environment variables
-            if [ -z "$DEPLOY_PATH" ]; then
-              echo "❌ Error: DEPLOY_PATH not set. Please set the VPS_DEPLOY_PATH secret in GitHub"
-              echo "ℹ Deployment path should be absolute (e.g. /home/user/raffley)"
+            echo "✅ SSH connection successful"
+            echo "Current user: $(whoami)"
+            echo "Home directory: $HOME"
+            echo "Working directory: $(pwd)"
+            echo "Environment variables:"
+            printenv | sort
+            echo "Checking write permission to ${{ secrets.VPS_DEPLOY_PATH }}"
+            mkdir -p "${{ secrets.VPS_DEPLOY_PATH }}"
+            touch "${{ secrets.VPS_DEPLOY_PATH }}/testfile" && \
+              rm "${{ secrets.VPS_DEPLOY_PATH }}/testfile" && \
+              echo "✅ Write permission verifi            echo "## PRE-DEPLOYMENT CHECKS ##"
+            echo "1. Checking target directory permissions:"
+            ls -ld "$DEPLOY_PATH" || echo "Directory doesn't exist"
+            
+            echo "2. Verifying write access:"
+            if ! touch "$DEPLOY_PATH/.deploy_test" 2>/dev/null; then
+              echo "❌ Cannot write to $DEPLOY_PATH"
+              echo "Current permissions:"
+              ls -ld "$DEPLOY_PATH"
+              echo "Suggested fix (run on VPS):"
+              echo "  sudo mkdir -p '$DEPLOY_PATH'"
+              echo "  sudo chown -R $USER:$USER '$DEPLOY_PATH'"
               exit 1
+            else
+              rm "$DEPLOY_PATH/.deploy_test"
+              echo "✅ Write access verified"
             fi
-
-            # Set default release name
-            RELEASE_NAME="${RELEASE_NAME:-raffley}"
-            echo "ℹ Using release name: $RELEASE_NAME"
-            echo "ℹ Using release name: $RELEASE_NAME"
-            echo "ℹ Deployment path: $DEPLOY_PATH"
-
-            RELEASE_DIR="$DEPLOY_PATH/_build/prod/rel/$RELEASE_NAME"
-            RELEASE_TAR="release.tar.gz"
-
-            echo "--- Preparing Deployment ---"
-            # Pre-flight permission checks
-            echo "🔍 Checking directory permissions..."
-            if ! [ -w "$DEPLOY_PATH" ] && ! [ -w "$(dirname "$DEPLOY_PATH")" ]; then
-              echo "❌ Error: Cannot write to $DEPLOY_PATH"
-              echo "ℹ Try running on your VPS:"
-              echo "   sudo mkdir -p $DEPLOY_PATH"
-              echo "   sudo chown -R $USER:$USER $DEPLOY_PATH"
-              exit 1
-            fi
-
-            echo "🔍 Verifying sudo access..."
+            
+            echo "3. Checking sudo privileges:"
             if ! sudo -n true 2>/dev/null; then
-              echo "❌ Error: SSH user needs passwordless sudo access"
-              echo "ℹ Ensure your user is in sudoers file on the VPS"
+              echo "❌ Passwordless sudo access required"
+              echo "Run on VPS: sudo visudo"
+              echo "Add line: $USER ALL=(ALL) NOPASSWD: ALL"
               exit 1
             fi
+            echo "✅ Sudo access verified"
 
-            # Ensure deployment directory exists with proper permissions
-            echo "🛠 Setting up directories..."
-            mkdir -p "$DEPLOY_PATH"
-            chmod 755 "$DEPLOY_PATH"
-
-            echo "--- Stopping Service ---"
-            sudo systemctl stop $RELEASE_NAME.service || true
+            echo "## SERVICE MANAGEMENT ##"
+            echo "1. Checking current service status:"
+            sudo systemctl status "$RELEASE_NAME.service" || true
+            
+            echo "2. Stopping service..."
+            if ! sudo systemctl stop "$RELEASE_NAME.service"; then
+              echo "⚠ Failed to stop service (may not exist yet)"
+            fi
             echo "--- Cleaning Previous Deployment ---"
             [ -d "$RELEASE_DIR" ] && rm -rf $RELEASE_DIR/*
             [ -d "$RELEASE_DIR" ] && rm -rf $RELEASE_DIR/*
