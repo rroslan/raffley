@@ -15,7 +15,9 @@ Ready to run in production? Please [check our deployment guides](https://hexdocs
 * MIX_ENV=prod mix compile
 * MIX_ENV=prod mix assets.deploy
 * MIX_ENV=prod mix release
-* _build/prod/rel/raffley/bin/raffley eval "Raffley.Release.migrate"
+* cd _build/prod/rel/raffley
+* bin/raffley remote
+* Raffley.Release.migrate()
 
 * Official website: https://www.phoenixframework.org/
 * Guides: https://hexdocs.pm/phoenix/overview.html
