@@ -11,7 +11,7 @@ Ready to run in production? Please [check our deployment guides](https://hexdocs
 
 ## Learn more
 
-* MIX_ENV=prod mix release
+* mix phx.gen.release # only one time to generate release for migration
 * MIX_ENV=prod mix compile
 * MIX_ENV=prod mix assets.deploy
 * MIX_ENV=prod mix release
