@@ -9,7 +9,7 @@ defmodule Raffley.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from({"Raffley", "contact@example.com"})
+      |> from({"Raffley", "noreply@applikasi.tech"})
       |> subject(subject)
       |> text_body(body)
 
