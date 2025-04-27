@@ -73,13 +73,13 @@ jobs:
             mix deps.get --only prod
 
             echo "Compiling application..."
-            MIX_ENV=prod mix compile
+            mix compile
 
             echo "Compiling assets..."
-            MIX_ENV=prod mix assets.deploy
+            mix assets.deploy
 
             echo "Building release..."
-            MIX_ENV=prod mix release
+            mix release
 
             echo "--- Running Database Migrations ---"
             # Adjust the path based on your app name if it differs from 'raffley'
