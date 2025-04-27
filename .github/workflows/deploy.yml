@@ -37,7 +37,7 @@ jobs:
           if [ -z "${{ secrets.VPS_SERVICE_NAME }}" ]; then echo "Error: VPS_SERVICE_NAME secret missing"; exit 1; fi
           echo "Required deployment secrets seem present."
 
-      - name: Connect, Pull, Build, Migrate, Restart
+      - name: Connect, Pull, Build, Migrate, Restart -- VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
