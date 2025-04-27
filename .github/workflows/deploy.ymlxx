@@ -1,0 +1,72 @@
+# .github/workflows/deploy.yml
+name: Trigger VPS Update on Main Push
+
+# Required GitHub Secrets:
+# - VPS_HOST: Hostname/IP of your VPS server
+# - VPS_SSH_USER: SSH username for VPS access
+# - VPS_SSH_PRIVATE_KEY: SSH private key (RAW content, NOT base64) used for SSH connection
+# - VPS_DEPLOY_PATH: Absolute path to the root of your checked-out git repository on the VPS (e.g., /home/deploy/raffley)
+# - VPS_GIT_BRANCH: The branch to pull on the VPS (usually 'main')
+
+# Important VPS Prerequisites:
+# 1. Git must be installed on the VPS.
+# 2. The repository must be cloned in VPS_DEPLOY_PATH.
+# 3. The VPS must have network access to clone/pull from GitHub (e.g., SSH key configured if private repo).
+# 4. Elixir, Erlang, Node.js (if needed), and build tools must be installed on the VPS.
+# 5. Runtime secrets (DATABASE_URL, SECRET_KEY_BASE, etc.) must be configured on the VPS environment where the build/run occurs.
+
+on:
+  push:
+    branches: [main] # Trigger workflow on push to the main branch
+
+jobs:
+  trigger_vps_update:
+    name: Pull Latest Code on VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Secrets Presence
+        run: |
+          echo "Checking required secrets..."
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then echo "Error: VPS_HOST secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_SSH_USER }}" ]; then echo "Error: VPS_SSH_USER secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_SSH_PRIVATE_KEY }}" ]; then echo "Error: VPS_SSH_PRIVATE_KEY secret missing"; exit 1; fi
+          if [ -z "${{ secrets.VPS_DEPLOY_PATH }}" ]; then echo "Error: VPS_DEPLOY_PATH secret missing"; exit 1; fi
+          echo "Required deployment secrets seem present."
+
+      - name: Connect to VPS and Pull Latest Code
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_SSH_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }} # IMPORTANT: Use the RAW private key content
+          # port: ${{ secrets.SSH_PORT || 22 }} # Uncomment if needed
+          script: |
+            set -e # Exit immediately if a command exits with a non-zero status.
+            DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
+            GIT_BRANCH="${{ secrets.VPS_GIT_BRANCH || 'main' }}" # Default to main if secret not set
+
+            echo "--- Starting VPS Update ---"
+            echo "Navigating to deployment directory: $DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
+
+            echo "Ensuring correct branch ($GIT_BRANCH) is checked out..."
+            git checkout "$GIT_BRANCH"
+
+            echo "Stashing potential local changes (optional, uncomment if needed)..."
+            # git stash push -m "Stashed by GitHub Actions before pull $(date)"
+
+            echo "Pulling latest changes from origin/$GIT_BRANCH..."
+            git pull origin "$GIT_BRANCH"
+
+            echo "Applying stashed changes (optional, uncomment if stash was used)..."
+            # git stash pop || echo "No stash to pop or conflict occurred (manual resolution needed)."
+
+            echo "--- Code Updated Successfully ---"
+            echo "Next steps (manual or separate script on VPS):"
+            echo "1. Install/update dependencies (mix deps.get --only prod)"
+            echo "2. Compile (MIX_ENV=prod mix compile)"
+            echo "3. Compile assets (MIX_ENV=prod mix assets.deploy)"
+            echo "4. Build release (mix release)"
+            echo "5. Run migrations (./_build/prod/rel/raffley/bin/raffley eval \"Raffley.Release.migrate\")"
+            echo "6. Restart the application service (sudo systemctl restart raffley.service)"
