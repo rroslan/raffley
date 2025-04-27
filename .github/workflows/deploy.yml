@@ -47,6 +47,7 @@ jobs:
           script: |
             set -e # Exit immediately if a command exits with a non-zero status.
             export MIX_ENV=prod # Set the environment for all subsequent mix commands
+            export PATH="$PATH:/home/ubuntu/.asdf/shims/mix # Ensure the PATH includes /usr/local/bin for mix, node, etc.
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
             GIT_BRANCH="${{ secrets.VPS_GIT_BRANCH || 'main' }}" # Default to main if secret not set
             SERVICE_NAME="${{ secrets.VPS_SERVICE_NAME }}" # Get service name from secret
