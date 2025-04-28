@@ -51,6 +51,8 @@ jobs:
             export PATH="$HOME/.elixir-install/installs/otp/27.2.3/bin:$PATH"
             export PATH="$HOME/.elixir-install/installs/elixir/1.18.3-otp-27/bin:$PATH"
             export DATABASE_URL="${{ secrets.DATABASE_URL }}" # Ensure this is set in the environment
+            export RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"   # <-- Add this line
+            export SECRET_KEY_BASE="${{ secrets.SECRET_KEY_BASE }}" # <-- Add this lin
             # --- End PATH setting ---
             export MIX_ENV=prod # Set the environment for all subsequent mix commands
             # Ensure the PATH for the VPS_SSH_USER is correctly set up in their environment
