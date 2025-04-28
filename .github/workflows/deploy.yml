@@ -13,9 +13,10 @@ name: Deploy to VPS on Main Push
 # 1. Git must be installed on the VPS.
 # 2. The repository must be cloned in VPS_DEPLOY_PATH.
 # 3. The VPS must have network access to clone/pull from GitHub (e.g., SSH key configured if private repo).
-# 4. Elixir, Erlang, Node.js (if needed), and build tools (like make, gcc) must be installed on the VPS.
-# 5. Runtime secrets (DATABASE_URL, SECRET_KEY_BASE, etc.) must be configured on the VPS environment where the build/run occurs (e.g., in the systemd service file or ~/.profile for the deploy user).
-# 6. The VPS_SSH_USER must have passwordless sudo privileges specifically for the systemctl command to restart the service (e.g., configure via /etc/sudoers.d/).
+# 4. Elixir, Erlang (installed via kerl/manual methods), Node.js (if needed), and build tools (like make, gcc) must be installed on the VPS.
+# 5. The PATH for the VPS_SSH_USER must be configured correctly (e.g., in ~/.bashrc or ~/.profile) to find the installed Erlang/Elixir executables (erl, mix, elixir).
+# 6. Runtime secrets (DATABASE_URL, SECRET_KEY_BASE, etc.) must be configured on the VPS environment where the build/run occurs (e.g., in the systemd service file or environment files).
+# 7. The VPS_SSH_USER must have passwordless sudo privileges specifically for the systemctl command to restart the service (e.g., configure via /etc/sudoers.d/).
 
 on:
   push:
@@ -47,7 +48,8 @@ jobs:
           script: |
             set -e # Exit immediately if a command exits with a non-zero status.
             export MIX_ENV=prod # Set the environment for all subsequent mix commands
-            export PATH="$PATH:/home/ubuntu/.asdf/shims/mix" # Ensure the PATH includes /usr/local/bin for mix, node, etc.
+            # Ensure the PATH for the VPS_SSH_USER is correctly set up in their environment
+            # (e.g., ~/.bashrc, ~/.profile) to find 'mix', 'erl', etc. from your kerl/manual install.
             DEPLOY_PATH="${{ secrets.VPS_DEPLOY_PATH }}"
             GIT_BRANCH="${{ secrets.VPS_GIT_BRANCH || 'main' }}" # Default to main if secret not set
             SERVICE_NAME="${{ secrets.VPS_SERVICE_NAME }}" # Get service name from secret
