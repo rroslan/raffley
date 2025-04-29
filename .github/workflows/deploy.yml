@@ -89,7 +89,7 @@ jobs:
             mix assets.deploy
 
             echo "Building release..."
-            mix release
+            mix release --overwrite
 
             echo "--- Running Database Migrations ---"
             # Adjust the path based on your app name if it differs from 'raffley'
