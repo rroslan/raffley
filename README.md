@@ -35,6 +35,49 @@ Ready to run in production? Please check our deployment guides.
 
 **Note:** During development (`MIX_ENV=dev`), emails will typically be delivered to the local mailbox viewer (usually accessible via `/dev/mailbox`) unless you specifically configure Resend for development as well.
 
+## Setting up SSH Key for Deployment (GitHub Actions)
+
+If you are using GitHub Actions to deploy, you'll likely need an SSH key pair to allow the Action runner to connect to your VPS.
+
+1.  **Generate SSH Key Pair:**
+    On your local machine (or anywhere secure, **not** on the VPS itself), generate a new SSH key pair. It's good practice to use a specific key for deployment and protect it with a passphrase (though you'll need to handle the passphrase during deployment if you use one).
+    ```bash
+    # Use -f to specify a filename, e.g., deploy_key
+    # You can choose to add a passphrase when prompted
+    ssh-keygen -t ed25519 -C "your_email@example.com" -f ~/.ssh/deploy_key_raffley
+    ```
+    This creates two files: `~/.ssh/deploy_key_raffley` (private key) and `~/.ssh/deploy_key_raffley.pub` (public key).
+
+2.  **Add Public Key to VPS:**
+    Copy the contents of the **public key** (`~/.ssh/deploy_key_raffley.pub`) and add it as a new line to the `~/.ssh/authorized_keys` file on your VPS for the user the deployment will connect as (e.g., `ubuntu`).
+    ```bash
+    # On your local machine, display the public key
+    cat ~/.ssh/deploy_key_raffley.pub
+
+    # On your VPS (replace 'ubuntu' if using a different user)
+    # SSH into your VPS first, then run:
+    echo "PASTE_PUBLIC_KEY_CONTENT_HERE" >> ~/.ssh/authorized_keys
+    chmod 600 ~/.ssh/authorized_keys # Ensure correct permissions
+    ```
+
+3.  **Get Private Key Content:**
+    You need the content of the **private key** (`~/.ssh/deploy_key_raffley`) to store it in GitHub Secrets. Display its content:
+    ```bash
+    # On your local machine
+    cat ~/.ssh/deploy_key_raffley
+    ```
+
+4.  **Set GitHub Secret:**
+    *   Copy the entire output from the `cat` command above (including the `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----` lines).
+    *   Go to your GitHub repository.
+    *   Navigate to `Settings` > `Secrets and variables` > `Actions`.
+    *   Click `New repository secret`.
+    *   Name the secret `VPS_SSH_PRIVATE_KEY`.
+    *   Paste the copied private key content into the `Secret` value box.
+    *   Click `Add secret`.
+
+Now your GitHub Actions workflow can use `${{ secrets.VPS_SSH_PRIVATE_KEY }}` to authenticate SSH connections to your VPS.
+
 
 ## Exclusively using Magic Link
 
