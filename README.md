@@ -97,7 +97,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-}
+}# <-- This closing brace was missing from copy/paste
 
 * sudo ln -s /etc/nginx/sites-available/raffley /etc/nginx/sites-enabled/
 * sudo nginx -t # Test configuration
