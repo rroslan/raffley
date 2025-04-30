@@ -10,7 +10,41 @@ Now you can visit `localhost:4000` from your browser.
 Ready to run in production? Please check our deployment guides.
 
 ## Learn more for version 1.8-rc.1
+* mix archive.install hex phx_new 1.8.0-rc.1 --force
+
+## Resend Configuration (for Production)
+
+1.  **Add Resend Dependency:** Ensure `{:resend, "~> 0.4.4"}` is in your `mix.exs` dependencies and run `mix deps.get`.
+
+2.  **Configure in `runtime.exs`:** Add the following lines inside the `if config_env() == :prod do` block in your `config/runtime.exs` file:
+
+    ```elixir
+    # config/runtime.exs (inside :prod block)
+
+    config :raffley, Raffley.Mailer,
+      adapter: Resend.Swoosh.Adapter,
+      api_key: System.fetch_env!("RESEND_API_KEY")
+
+    # Use Finch for the Swoosh API client in production
+    config :swoosh, :api_client, Swoosh.ApiClient.Finch
+    ```
+
+3.  **Set Sender Email:** In `lib/raffley_web/emails/user_notifier.ex` (or wherever your mailer functions are defined), make sure the `:from` address is set to an email address associated with a domain you have verified in Resend.
+
+4.  **Set Environment Variable:** Ensure the `RESEND_API_KEY` environment variable is set in your production environment (e.g., in your `.env` file or systemd service definition). Get this key from your Resend account dashboard.
+
+**Note:** During development (`MIX_ENV=dev`), emails will typically be delivered to the local mailbox viewer (usually accessible via `/dev/mailbox`) unless you specifically configure Resend for development as well.
+
+
 ## Exclusively using Magic Link
+
+* Registration disabled through web, done through `iex -S mix` on VPS
+* `alias Raffley.Accounts`
+* `user_params = %{"email" => "new_user@example.com"}` # Add any other required fields
+* `Accounts.register_user(user_params)`
+* Then log in on the VPS
+* If running on localhost, do the same as above
+
 ## sudo nano /etc/systemd/system/raffley.service
 
 * User=ubuntu
