@@ -9,8 +9,10 @@ Now you can visit `localhost:4000` from your browser.
 
 Ready to run in production? Please check our deployment guides.
 
-## Learn more for version 1.8-rc.1
-* mix archive.install hex phx_new 1.8.0-rc.1 --force
+## Learn more for version 1.8-rc.1 to try, 2nd option better because you don't install.
+* `mix archive.install hex phx_new 1.8.0-rc.1 --force`
+* or `curl https://new.phoenixframework.org/<myapp> | sh`
+
 
 ## Resend Configuration (for Production)
 
