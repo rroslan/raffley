@@ -1,100 +1,32 @@
 <Layouts.flash_group flash={@flash} />
-<div class="px-4 py-10 sm:px-6 sm:py-16 lg:px-8 xl:px-28 xl:py-24 bg-gradient-to-br from-base-100 to-primary/10 rounded-b-3xl">
-  <div class="mx-auto max-w-xl lg:mx-0">
-  <div class="mx-auto max-w-xl lg:mx-0">
-    <div class="mt-10 flex justify-between items-center">
-      <h1 class="flex items-center text-sm font-semibold leading-6">
-        Phoenix Framework
-        <%!-- <small class="badge badge-warning badge-sm ml-3">
-          v{Application.spec(:phoenix, :vsn)}
-        </small> --%>
-      </h1>
-      <Layouts.theme_toggle />
-    </div>
 
-    <p class="text-[2rem] mt-4 font-semibold leading-10 tracking-tighter text-balance">
-      Peace of mind from prototype to production.
-    </p>
-    <p class="mt-4 leading-7 text-base-content/70">
-      Build rich, interactive web applications quickly, with less code and fewer moving parts. Join our growing community of developers using Phoenix to craft APIs, HTML5 apps and more, for fun or at scale.
-    </p>
-    <div class="flex">
-      <div class="w-full sm:w-auto">
-        <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-          <a
-            href="https://hexdocs.pm/phoenix/overview.html"
-            class="group relative rounded-box px-6 py-4 text-sm font-semibold leading-6 sm:py-6"
-          >
-            <span class="absolute inset-0 rounded-box bg-base-200 transition group-hover:bg-base-300 sm:group-hover:scale-105">
-            </span>
-            <span class="relative flex items-center gap-4 sm:flex-col">
-              <span class="text-2xl font-light">📚</span>
-              Guides &amp; Docs
-            </span>
-          </a>
-          <a
-            href="https://github.com/phoenixframework/phoenix"
-            class="group relative rounded-box px-6 py-4 text-sm font-semibold leading-6 sm:py-6"
-          >
-            <span class="absolute inset-0 rounded-box bg-base-200 transition group-hover:bg-base-300 sm:group-hover:scale-105">
-            </span>
-            <span class="relative flex items-center gap-4 sm:flex-col">
-              <span class="text-2xl font-light">📜</span>
-              Source Code
-            </span>
-          </a>
-          <a
-            href={"https://github.com/phoenixframework/phoenix/blob/v#{Application.spec(:phoenix, :vsn)}/CHANGELOG.md"}
-            class="group relative rounded-box px-6 py-4 text-sm font-semibold leading-6 sm:py-6"
-          >
-            <span class="absolute inset-0 rounded-box bg-base-200 transition group-hover:bg-base-300 sm:group-hover:scale-105">
-            </span>
-            <span class="relative flex items-center gap-4 sm:flex-col">
-              <span class="text-2xl font-light">⌛</span>
-              Changelog
-            </span>
-          </a>
-        </div>
-        <div class="mt-10 grid grid-cols-1 gap-y-4 text-sm leading-6 text-base-content/80 sm:grid-cols-2">
-          <div>
-            <a
-              href="https://elixirforum.com"
-              class="group -mx-2 -my-0.5 inline-flex items-center gap-3 rounded-lg px-2 py-0.5 hover:bg-base-200 hover:text-base-content"
-            >
-              <span class="text-sm">💬</span>
-              Discuss on the Elixir Forum
-            </a>
-          </div>
-          <div>
-            <a
-              href="https://discord.gg/elixir"
-              class="group -mx-2 -my-0.5 inline-flex items-center gap-3 rounded-lg px-2 py-0.5 hover:bg-base-200 hover:text-base-content"
-            >
-              <span class="text-sm">🌐</span>
-              Join our Discord server
-            </a>
-          </div>
-          <div>
-            <a
-              href="https://elixir-slack.community/"
-              class="group -mx-2 -my-0.5 inline-flex items-center gap-3 rounded-lg px-2 py-0.5 hover:bg-base-200 hover:text-base-content"
-            >
-              <span class="text-sm">💬</span>
-              Join us on Slack
-            </a>
-          </div>
-          <div>
-            <a
-              href="https://fly.io/docs/elixir/getting-started/"
-              class="group -mx-2 -my-0.5 inline-flex items-center gap-3 rounded-lg px-2 py-0.5 hover:bg-base-200 hover:text-base-content"
-            >
-              <span class="text-sm">✈️</span>
-              Deploy your application
-            </a>
-          </div>
-        </div>
+
+<div class="flex justify-center items-center min-h-[calc(100vh-10rem)] px-4">
+  <div class="card w-full max-w-md bg-base-100 shadow-xl p-6">
+    <h2 class="text-2xl font-semibold text-center mb-6">Access Survey</h2>
+
+  
+    <form class="space-y-4">
+      <div>
+        <label for="token_input" class="block text-sm font-medium mb-1">
+          Survey Token Link
+        </label>
+        <input
+          type="text"
+          id="token_input"
+          name="token"
+          class="input input-bordered w-full"
+          placeholder="Paste your token link here..."
+          aria-label="Survey Token Link Input"
+          required
+        />
       </div>
-    </div>
+      <button type="submit" class="btn btn-primary w-full">
+        Go to Survey
+      </button>
+    </form>
+    <p class="text-sm text-base-content/70 text-center mt-4">
+      Paste the link provided by the agent to access the survey.
+    </p>
   </div>
-</div>
 </div>

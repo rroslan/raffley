@@ -1,0 +1,29 @@
+<Layouts.flash_group flash={@flash} />
+
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold text-center mb-6">Survey</h1>
+
+  <div class="bg-base-100 shadow-xl rounded-lg overflow-hidden">
+    <%!--
+      Embed the Google Form here.
+      You'll need to replace the `src` attribute with the actual embed URL
+      provided by Google Forms. This URL might be passed dynamically
+      to this template via assigns (e.g., @google_form_url).
+    --%>
+    <iframe
+      src={@google_form_url || "https://docs.google.com/forms/d/e/1FAIpQLScIC1VtnxLTWNGeAgUPFy8J_sS_JXhwbQiA4cbwg_rnN8XHTg/viewform?embedded=true"}
+      width="100%"
+      height="800"
+      frameborder="0"
+      marginheight="0"
+      marginwidth="0"
+      title="Survey Form"
+    >
+      Loading…
+    </iframe>
+  </div>
+
+  <p class="text-center text-sm text-base-content/70 mt-4">
+    Please complete the survey above.
+  </p>
+</div>
