@@ -33,9 +33,24 @@ end
 
     timestamps(type: :utc_datetime)
   end
-  ```
+ 
+  def email_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email, :is_admin, :is_super_admin])
+    |> validate_email(opts)
+  end
+
   ```elixir
-   **Update User in IEx:**
+  def email_changeset(user, attrs, opts \\ []) do
+    user
+    |> cast(attrs, [:email, :is_admin, :is_super_admin])
+    |> validate_email(opts)
+  end
+  ```
+
+
+  ```elixir
+   **Update User in IEx: on local machine**
     *   Restart IEx to recompile: `iex -S mix`
     *   Run the following commands inside IEx:
         ```elixir
@@ -49,6 +64,12 @@ end
 **(Optional) Verify in PostgreSQL:**
     *   Connect: `docker exec -it <container_name> psql -U <user> -d raffley_dev`
     *   Query: `SELECT id, email, is_admin, is_super_admin FROM users WHERE email = 'xxxxxx@gmail.com';`
+
+    * cd /home/ubuntu/raffley/_build/prod/rel/raffley
+    * bin/raffley remote
+    * as above on VPS update user to admin
+
+
 
 
 
