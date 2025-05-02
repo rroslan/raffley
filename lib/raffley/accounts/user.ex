@@ -9,6 +9,8 @@ defmodule Raffley.Accounts.User do
     field :current_password, :string, virtual: true, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
+    field :is_admin, :boolean, default: false
+    field :is_super_admin, :boolean, default: false
 
     timestamps(type: :utc_datetime)
   end
@@ -26,7 +28,7 @@ defmodule Raffley.Accounts.User do
   """
   def email_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email])
+    |> cast(attrs, [:email, :is_admin, :is_super_admin])
     |> validate_email(opts)
   end
 
