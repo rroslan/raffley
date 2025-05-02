@@ -42,7 +42,7 @@ end
         alias Raffley.Repo
         alias Raffley.Accounts.User
         import Ecto.Changeset
-        user = Repo.get_by(User, email: "xxxxxxx@gmail.com") # Replace with actual email if needed
+        user = Repo.get_by(User, email: "xxxxx@gmail.com") # Replace with actual email if needed
         changeset = change(user, %{is_admin: true, is_super_admin: true})
         Repo.update!(changeset) # Or use Repo.update(changeset) and check the result
         ```
