@@ -19,6 +19,7 @@ defmodule RaffleyWeb.UserSessionController do
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 
         conn
+        |> delete_session(:user_return_to)  # Clear any stored return path
         |> put_flash(:info, info)
         |> UserAuth.log_in_user(user, user_params)
 
@@ -35,6 +36,7 @@ defmodule RaffleyWeb.UserSessionController do
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
       conn
+      |> delete_session(:user_return_to)  # Clear any stored return path
       |> put_flash(:info, info)
       |> UserAuth.log_in_user(user, user_params)
     else

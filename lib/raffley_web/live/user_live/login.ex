@@ -96,10 +96,10 @@ defmodule RaffleyWeb.UserLive.Login do
     info =
       "If your email is in our system, you will receive instructions for logging in shortly."
 
+    # Remove push_navigate to allow the controller redirect to take precedence
     {:noreply,
      socket
-     |> put_flash(:info, info)
-     |> push_navigate(to: ~p"/users/log-in")}
+     |> put_flash(:info, info)}
   end
 
   defp local_mail_adapter? do
