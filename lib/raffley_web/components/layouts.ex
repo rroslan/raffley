@@ -16,7 +16,7 @@ defmodule RaffleyWeb.Layouts do
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
         <.link href="/" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
-          <img src={~p"/images/logo.svg"} width="42" class="min-w-[42px]" alt="Raffley Logo" />
+          <img src={~p"/images/raffley-logo.svg"} width="42" class="min-w-[42px]" alt="Raffley Logo" />
         </.link>
       </div>
       <div class="flex-none">
