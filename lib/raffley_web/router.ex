@@ -39,10 +39,32 @@ defmodule RaffleyWeb.Router do
     # as long as you are also using SSL (which you should anyway).
     import Phoenix.LiveDashboard.Router
 
-    scope "/dev" do
-      pipe_through :browser
+    # Pipeline with CSRF for dashboard
+    pipeline :dev_tools_protected do
+      plug :accepts, ["html"]
+      plug :fetch_session
+      plug :fetch_live_flash
+      plug :put_root_layout, html: {RaffleyWeb.Layouts, :root}
+      plug :protect_from_forgery
+      plug :put_secure_browser_headers
+    end
 
+    # Simple pipeline for mailbox (no CSRF)
+    pipeline :dev_tools do
+      plug :accepts, ["html"]
+      plug :fetch_session
+      plug :fetch_live_flash
+      plug :put_root_layout, html: {RaffleyWeb.Layouts, :root}
+      plug :put_secure_browser_headers
+    end
+
+    scope "/dev" do
+      pipe_through :dev_tools_protected
       live_dashboard "/dashboard", metrics: RaffleyWeb.Telemetry
+    end
+
+    scope "/dev" do
+      pipe_through :dev_tools
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
   end
