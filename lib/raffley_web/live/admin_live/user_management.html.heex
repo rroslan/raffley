@@ -1,0 +1,89 @@
+<.header>
+  User Management
+  <:subtitle>Manage user permissions and admin status</:subtitle>
+</.header>
+
+<.table id="users" rows={@users}>
+  <:col :let={user} label="Email">{user.email}</:col>
+  <:col :let={user} label="Admin Status">
+    <div class="flex flex-col gap-1">
+      <span class={["badge", user.is_admin && "badge-accent"]} >
+        <%= if user.is_admin, do: "Admin", else: "Not Admin" %>
+      </span>
+      <span class={["badge", user.is_super_admin && "badge-primary"]} >
+        <%= if user.is_super_admin, do: "Super Admin", else: "Not Super Admin" %>
+      </span>
+    </div>
+  </:col>
+  <:col :let={user} label="Confirmed">
+    <%= if user.confirmed_at, do: "Yes", else: "No" %>
+  </:col>
+  <:col :let={user} label="Created">
+    <%= Calendar.strftime(user.inserted_at, "%Y-%m-%d") %>
+  </:col>
+  <:action :let={user}>
+    <%= if Accounts.can_modify_user_status?(@current_scope, user) do %>
+      <button 
+        class="btn btn-sm btn-outline" 
+        phx-click="edit_user" 
+        phx-value-id={user.id}
+      >
+        Edit Permissions
+      </button>
+    <% else %>
+      <span class="text-xs text-gray-500">Cannot modify</span>
+    <% end %>
+  </:action>
+</.table>
+
+<%= if @show_modal do %>
+  <div
+    id="user-modal"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    phx-window-keydown="close_modal"
+    phx-key="escape"
+  >
+    <div class="modal-box relative bg-base-100 p-6 rounded-lg w-full max-w-md">
+      <button 
+        type="button"
+        class="btn btn-sm btn-circle absolute right-2 top-2"
+        phx-click="close_modal"
+        aria-label="close"
+      >
+        <.icon name="hero-x-mark-solid" class="size-4" />
+      </button>
+      
+      <h3 class="text-lg font-semibold mb-4">
+        Edit Permissions for <%= @selected_user.email %>
+      </h3>
+
+      <.form for={%{}} id="user-form" phx-submit="save">
+        <div class="mb-4">
+          <.input
+            type="checkbox"
+            label="Admin"
+            name="user[is_admin]"
+            value={@selected_user.is_admin}
+          />
+          
+          <.input
+            type="checkbox"
+            label="Super Admin"
+            name="user[is_super_admin]"
+            value={@selected_user.is_super_admin}
+          />
+        </div>
+        
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-outline" phx-click="close_modal">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary">
+            Save Changes
+          </button>
+        </div>
+      </.form>
+    </div>
+  </div>
+<% end %>
+
