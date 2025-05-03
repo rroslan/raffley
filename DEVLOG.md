@@ -1,26 +1,34 @@
-# For TODO and a record what was accomplished
-* Using magic link to login, registration done through web, done through `iex -S mix` on VPS. Refer to README.md for more details.
+# Development Log
 
-## do db migration to add to users table is_super_admin and is_admin
-```elixir
-defmodule Raffley.Repo.Migrations.AddAdminFlagsToUsers do
-  use Ecto.Migration
+## Authentication System
+### Magic Link Authentication
+* Using magic link to login - no password required
+* Registration done through `iex -S mix` on VPS
+* See README.md for detailed setup instructions
 
-  def change do
-    alter table(:users) do
-      add :is_admin, :boolean, default: false, null: false
-      add :is_super_admin, :boolean, default: false, null: false
+### Admin System Implementation
+#### Database Changes (2025-05-02)
+* Added admin flags to users table:
+  ```elixir
+  defmodule Raffley.Repo.Migrations.AddAdminFlagsToUsers do
+    use Ecto.Migration
+
+    def change do
+      alter table(:users) do
+        add :is_admin, :boolean, default: false, null: false
+        add :is_super_admin, :boolean, default: false, null: false
+      end
+
+      create index(:users, [:is_admin])
+      create index(:users, [:is_super_admin])
+      create index(:users, [:is_admin, :is_super_admin])
     end
-
-    create index(:users, [:is_admin])
-    create index(:users, [:is_super_admin])
-    create index(:users, [:is_admin, :is_super_admin])
-
   end
-end
-```
-```elixir
+  ```
 
+#### User Schema Updates
+* Updated User schema with admin flags:
+  ```elixir
   schema "users" do
     field :email, :string
     field :password, :string, virtual: true, redact: true
@@ -28,19 +36,12 @@ end
     field :current_password, :string, virtual: true, redact: true
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
-    field :is_admin, :boolean, default: false  # add this line
-    field :is_super_admin, :boolean, default: false # add this line
+    field :is_admin, :boolean, default: false
+    field :is_super_admin, :boolean, default: false
 
     timestamps(type: :utc_datetime)
   end
- 
-  def email_changeset(user, attrs, opts \\ []) do
-    user
-    |> cast(attrs, [:email, :is_admin, :is_super_admin])
-    |> validate_email(opts)
-  end
 
-  ```elixir
   def email_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [:email, :is_admin, :is_super_admin])
@@ -48,30 +49,60 @@ end
   end
   ```
 
+### Admin User Setup
+#### Local Development
+1. Start IEx console:
+   ```bash
+   iex -S mix
+   ```
+2. Update user admin status:
+   ```elixir
+   alias Raffley.Repo
+   alias Raffley.Accounts.User
+   import Ecto.Changeset
+   
+   # Get user by email
+   user = Repo.get_by(User, email: "user@example.com")
+   
+   # Update admin status
+   changeset = change(user, %{is_admin: true, is_super_admin: true})
+   Repo.update!(changeset)
+   ```
 
-  ```elixir
-   **Update User in IEx: on local machine**
-    *   Restart IEx to recompile: `iex -S mix`
-    *   Run the following commands inside IEx:
-        ```elixir
-        alias Raffley.Repo
-        alias Raffley.Accounts.User
-        import Ecto.Changeset
-        user = Repo.get_by(User, email: "xxxxx@gmail.com") # Replace with actual email if needed
-        changeset = change(user, %{is_admin: true, is_super_admin: true})
-        Repo.update!(changeset) # Or use Repo.update(changeset) and check the result
-        ```
-**(Optional) Verify in PostgreSQL:**
-    *   Connect: `docker exec -it <container_name> psql -U <user> -d raffley_dev`
-    *   Query: `SELECT id, email, is_admin, is_super_admin FROM users WHERE email = 'xxxxxx@gmail.com';`
+#### Production (VPS)
+1. Connect to remote console:
+   ```bash
+   cd /home/ubuntu/raffley/_build/prod/rel/raffley
+   bin/raffley remote
+   ```
+2. Follow same steps as local development to update user status
 
-    * cd /home/ubuntu/raffley/_build/prod/rel/raffley
-    * bin/raffley remote
-    * as above on VPS update user to admin
+#### Verify Changes (Development)
+```sql
+-- Connect to PostgreSQL
+docker exec -it <container_name> psql -U <user> -d raffley_dev
 
+-- Check user status
+SELECT id, email, is_admin, is_super_admin 
+FROM users 
+WHERE email = 'user@example.com';
+```
 
+## Recent Updates
 
+### Flash Message Handling (2025-05-03)
+* Fixed flash message display in login and confirmation forms
+* Added proper positioning with absolute positioning and z-index
+* Integrated with DaisyUI styling for consistent look
+* Improved HTML structure and component organization
 
+### Form Handling Improvements
+* Fixed form field access and validation
+* Added proper CSRF protection
+* Improved error message display
+* Enhanced form accessibility with proper labels and ARIA attributes
 
-
-
+### Testing
+* All 98 tests passing
+* Minor warnings for deprecated `push_redirect` usage (to be updated)
+* Admin management functionality in progress
