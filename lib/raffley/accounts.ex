@@ -305,4 +305,140 @@ defmodule Raffley.Accounts do
       {:ok, user, expired_tokens}
     end
   end
+  @doc """
+  Returns the list of all users.
+
+  ## Examples
+
+      iex> list_users()
+      [%User{}, ...]
+
+  """
+  def list_users do
+    Repo.all(User)
+  end
+
+  @doc """
+  Updates a user's admin status.
+
+  ## Examples
+
+      iex> update_user_admin_status(user, true)
+      {:ok, %User{}}
+
+      iex> update_user_admin_status(user, false)
+      {:ok, %User{}}
+
+  """
+  def update_user_admin_status(%User{} = user, is_admin) do
+    IO.puts("ACCOUNTS: update_user_admin_status called - User ID: #{user.id}, Current is_admin: #{user.is_admin}")
+    IO.puts("ACCOUNTS: Setting is_admin to: #{is_admin} (#{typeof(is_admin)})")
+    
+    changeset = User.admin_changeset(user, %{is_admin: is_admin})
+    
+    # Log changeset information
+    IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+    if !changeset.valid? do
+      IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+    end
+    
+    # Log changes
+    changes = Ecto.Changeset.get_change(changeset, :is_admin)
+    IO.puts("ACCOUNTS: Changes to is_admin: #{inspect(changes)}")
+    
+    result = Repo.update(changeset)
+    IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
+    
+    result
+  end
+  
+  # Helper function to determine type for debugging
+  defp typeof(term) do
+    cond do
+      is_binary(term) -> "string"
+      is_boolean(term) -> "boolean"
+      is_integer(term) -> "integer"
+      is_float(term) -> "float"
+      is_list(term) -> "list"
+      is_map(term) -> "map"
+      is_tuple(term) -> "tuple"
+      is_atom(term) -> "atom"
+      true -> "unknown"
+    end
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for changing the user's admin status.
+
+  ## Examples
+
+      iex> change_user_admin_status(user)
+      %Ecto.Changeset{data: %User{}}
+
+  """
+  def change_user_admin_status(%User{} = user, attrs \\ %{}) do
+    User.admin_changeset(user, attrs)
+  end
+
+  @doc """
+  Updates a user's super admin status.
+
+  This is a sensitive operation that should be carefully controlled through proper
+  authorization checks using can_modify_user_status?/2.
+
+  ## Examples
+
+      iex> update_user_super_admin_status(user, true)
+      {:ok, %User{}}
+
+      iex> update_user_super_admin_status(user, false)
+      {:ok, %User{}}
+
+  """
+  def update_user_super_admin_status(%User{} = user, is_super_admin) do
+    IO.puts("ACCOUNTS: update_user_super_admin_status called - User ID: #{user.id}, Current is_super_admin: #{user.is_super_admin}")
+    IO.puts("ACCOUNTS: Setting is_super_admin to: #{is_super_admin} (#{typeof(is_super_admin)})")
+    
+    changeset = User.admin_changeset(user, %{is_super_admin: is_super_admin})
+    
+    # Log changeset information
+    IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+    if !changeset.valid? do
+      IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+    end
+    
+    # Log changes
+    changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
+    IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
+    
+    result = Repo.update(changeset)
+    IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
+    
+    result
+  end
+
+  @doc """
+  Determines if a user can modify another user's admin status.
+
+  Only super admins can modify other users' admin status, and they cannot modify
+  other super admin users.
+
+  ## Examples
+
+      iex> can_modify_user_status?(super_admin_user, regular_user)
+      true
+
+      iex> can_modify_user_status?(admin_user, regular_user)
+      false
+
+      iex> can_modify_user_status?(super_admin_user, other_super_admin)
+      false
+
+  """
+  def can_modify_user_status?(%User{is_super_admin: true} = acting_user, %User{} = target_user) do
+    # Super admins can modify any user except other super admins
+    acting_user.id != target_user.id && !target_user.is_super_admin
+  end
+
+  def can_modify_user_status?(_acting_user, _target_user), do: false
 end

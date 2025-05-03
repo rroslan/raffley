@@ -98,7 +98,7 @@ defmodule RaffleyWeb.UserLive.Confirmation do
       {:ok,
        socket
        |> put_flash(:error, "Magic link is invalid or it has expired.")
-       |> push_redirect(to: ~p"/users/log-in")}
+       |> push_navigate(to: ~p"/users/log-in")}
     end
   end
 

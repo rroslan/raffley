@@ -415,6 +415,72 @@ defmodule RaffleyWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a modal.
+
+  ## Examples
+
+      <.modal id="confirm-modal">
+        <:title>Are you sure?</:title>
+        <p>This action cannot be undone.</p>
+        <:footer>
+          <.button phx-click={JS.push("delete")} variant="primary">Delete</.button>
+          <.button phx-click={hide_modal("confirm-modal")}>Cancel</.button>
+        </:footer>
+      </.modal>
+  """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :on_cancel, JS, default: %JS{}
+  attr :rest, :global
+
+  slot :title, required: true
+  slot :inner_block, required: true
+  slot :footer
+
+  def modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-mounted={@show && show_modal(@id)}
+      phx-remove={hide_modal(@id)}
+      phx-key="escape"
+      phx-window-keydown={hide_modal(@id)}
+      phx-click-away={hide_modal(@id)}
+      class="modal"
+      {@rest}
+    >
+      <div class="modal-box max-w-3xl">
+        <header class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-semibold leading-8">
+            <%= render_slot(@title) %>
+          </h2>
+          <button
+            phx-click={hide_modal(@id)}
+            class="btn btn-sm btn-circle absolute right-2 top-2"
+            aria-label={gettext("close")}
+            type="button"
+          >
+            <.icon name="hero-x-mark-solid" class="size-4" />
+          </button>
+        </header>
+        <%= render_slot(@inner_block) %>
+        <div :if={@footer != []} class="mt-6 flex items-center justify-end">
+          <%= render_slot(@footer) %>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def show_modal(js \\ %JS{}, id) when is_binary(id) do
+    JS.dispatch(js, "phx:show-modal", detail: %{id: id})
+  end
+
+  def hide_modal(js \\ %JS{}, id) when is_binary(id) do
+    JS.dispatch(js, "phx:hide-modal", detail: %{id: id})
+  end
+
   ## JS Commands
 
   def show(js \\ %JS{}, selector) do

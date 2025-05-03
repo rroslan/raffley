@@ -132,4 +132,20 @@ defmodule Raffley.Accounts.User do
     Bcrypt.no_user_verify()
     false
   end
+
+  @doc """
+  A user changeset for updating admin status.
+  """
+  def admin_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:is_admin, :is_super_admin])
+    |> validate_required([])
+    |> update_change(:is_admin, &normalize_boolean/1)
+    |> update_change(:is_super_admin, &normalize_boolean/1)
+  end
+
+  # Helper to ensure boolean values are properly normalized
+  defp normalize_boolean(value) when is_binary(value), do: value == "true"
+  defp normalize_boolean(value) when is_boolean(value), do: value
+  defp normalize_boolean(_), do: false
 end

@@ -382,6 +382,53 @@ defmodule Raffley.AccountsTest do
     end
   end
 
+  describe "update_user_super_admin_status/2" do
+    test "super admin can modify another user's super admin status" do
+      super_admin = user_fixture(%{is_super_admin: true})
+      regular_user = user_fixture()
+
+      assert {:ok, updated_user} = Accounts.update_user_super_admin_status(regular_user, true)
+      assert updated_user.is_super_admin
+      assert Accounts.can_modify_user_status?(super_admin, regular_user)
+    end
+
+    test "regular admin cannot modify super admin status" do
+      admin = user_fixture(%{is_admin: true})
+      regular_user = user_fixture()
+
+      refute Accounts.can_modify_user_status?(admin, regular_user)
+    end
+
+    test "super admin cannot modify their own super admin status" do
+      super_admin = user_fixture(%{is_super_admin: true})
+
+      refute Accounts.can_modify_user_status?(super_admin, super_admin)
+    end
+
+    test "super admin cannot modify another super admin's status" do
+      super_admin = user_fixture(%{is_super_admin: true})
+      other_super_admin = user_fixture(%{is_super_admin: true})
+
+      refute Accounts.can_modify_user_status?(super_admin, other_super_admin)
+    end
+
+    test "update_user_super_admin_status/2 changes super admin status" do
+      user = user_fixture(%{is_super_admin: false})
+      assert {:ok, updated_user} = Accounts.update_user_super_admin_status(user, true)
+      assert updated_user.is_super_admin
+
+      assert {:ok, updated_user} = Accounts.update_user_super_admin_status(updated_user, false)
+      refute updated_user.is_super_admin
+    end
+
+    test "update_user_super_admin_status/2 fails when modifying another super admin" do
+      super_admin = user_fixture(%{is_super_admin: true})
+      other_super_admin = user_fixture(%{is_super_admin: true})
+
+      assert {:error, :unauthorized} = Accounts.update_user_super_admin_status(other_super_admin, false)
+    end
+  end
+
   describe "inspect/2 for the User module" do
     test "does not include password" do
       refute inspect(%User{password: "123456"}) =~ "password: \"123456\""

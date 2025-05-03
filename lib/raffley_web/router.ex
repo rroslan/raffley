@@ -69,6 +69,47 @@ defmodule RaffleyWeb.Router do
     end
   end
 
+  pipeline :require_admin do
+    plug :require_authenticated_user
+    plug :ensure_admin
+  end
+
+  pipeline :require_super_admin do
+    plug :require_authenticated_user
+    plug :ensure_super_admin
+  end
+
+  # Regular admin routes (accessible by both admins and super admins)
+  scope "/admin", RaffleyWeb do
+    pipe_through [:browser, :require_admin]
+
+    get "/", AdminController, :index
+
+    live_session :require_admin_user,
+      on_mount: [{RaffleyWeb.UserAuth, :ensure_admin}] do
+      # Regular admin routes go here
+      # Add other admin routes here that should be accessible to all admins
+    end
+  end
+
+  # Redirect old user management URL to new one
+  scope "/admin", RaffleyWeb do
+    pipe_through [:browser, :require_super_admin]
+    
+    get "/users", AdminController, :redirect_to_user_management
+  end
+
+  # Super Admin routes (only accessible by super admins)
+  scope "/admin/super", RaffleyWeb do
+    pipe_through [:browser, :require_super_admin]
+
+    live_session :require_super_admin_user,
+      on_mount: [{RaffleyWeb.UserAuth, :ensure_super_admin}] do
+      live "/users", AdminLive.UserManagement, :index
+      live "/users/:id", AdminLive.UserManagement, :edit
+    end
+  end
+
   ## Authentication routes
 
   scope "/", RaffleyWeb do

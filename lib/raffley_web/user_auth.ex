@@ -193,6 +193,15 @@ defmodule RaffleyWeb.UserAuth do
       on user_token.
       Redirects to login page if there's no logged user.
 
+    * `:require_sudo_mode` - Requires the user to have recently authenticated,
+      useful for sensitive actions that require re-authentication.
+
+    * `:ensure_admin` - Requires the user to have admin privileges,
+      redirects to home page otherwise.
+
+    * `:ensure_super_admin` - Requires the user to have super admin privileges,
+      redirects to home page otherwise.
+
   ## Examples
 
   Use the `on_mount` lifecycle macro in LiveViews to mount or authenticate
@@ -244,6 +253,36 @@ defmodule RaffleyWeb.UserAuth do
       {:halt, socket}
     end
   end
+  
+  def on_mount(:ensure_admin, _params, session, socket) do
+    socket = mount_current_scope(socket, session)
+
+    if socket.assigns.current_scope && socket.assigns.current_scope.user && socket.assigns.current_scope.user.is_admin do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You must be an admin to access that page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/")
+
+      {:halt, socket}
+    end
+  end
+  
+  def on_mount(:ensure_super_admin, _params, session, socket) do
+    socket = mount_current_scope(socket, session)
+
+    if socket.assigns.current_scope && socket.assigns.current_scope.user && socket.assigns.current_scope.user.is_super_admin do
+      {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You must be a super admin to access that page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/")
+
+      {:halt, socket}
+    end
+  end
 
   defp mount_current_scope(socket, session) do
     Phoenix.Component.assign_new(socket, :current_scope, fn ->
@@ -284,4 +323,33 @@ defmodule RaffleyWeb.UserAuth do
   end
 
   defp maybe_store_return_to(conn), do: conn
+
+  @doc """
+  Plug for routes that require the user to be an admin.
+  """
+  def ensure_admin(conn, _opts) do
+    if conn.assigns.current_scope && conn.assigns.current_scope.user && conn.assigns.current_scope.user.is_admin do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must be an admin to access that page.")
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
+  @doc """
+  Plug for routes that require the user to be a super admin.
+  """
+  def ensure_super_admin(conn, _opts) do
+    if conn.assigns.current_scope && conn.assigns.current_scope.user && conn.assigns.current_scope.user.is_super_admin do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must be a super admin to access that page.")
+      |> redirect(to: ~p"/")
+      |> halt()
+    end
+  end
+
 end

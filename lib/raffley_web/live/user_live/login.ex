@@ -99,7 +99,7 @@ defmodule RaffleyWeb.UserLive.Login do
     {:noreply,
      socket
      |> put_flash(:info, info)
-     |> push_redirect(to: ~p"/users/log-in")}
+     |> push_navigate(to: ~p"/users/log-in")}
   end
 
   defp local_mail_adapter? do
