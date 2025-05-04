@@ -313,13 +313,24 @@ defmodule Raffley.AccountsTest do
       refute Accounts.can_modify_user_status?(super_admin, other_super_admin)
     end
 
-    test "update_user_super_admin_status/2 changes super admin status" do
+    test "update_user_super_admin_status/2 can grant super admin status" do
       user = user_fixture(%{is_super_admin: false})
       assert {:ok, updated_user} = Accounts.update_user_super_admin_status(user, true)
       assert updated_user.is_super_admin
+    end
 
-      assert {:ok, updated_user} = Accounts.update_user_super_admin_status(updated_user, false)
-      refute updated_user.is_super_admin
+    test "update_user_super_admin_status/2 cannot revoke super admin status" do
+      # Create a user and make them super admin
+      user = user_fixture(%{is_super_admin: false})
+      {:ok, super_admin} = Accounts.update_user_super_admin_status(user, true)
+      assert super_admin.is_super_admin
+
+      # Attempt to revoke super admin status should fail
+      assert {:error, :unauthorized} = Accounts.update_user_super_admin_status(super_admin, false)
+      
+      # Verify the user is still a super admin in the database
+      fresh_user = Repo.get!(User, super_admin.id)
+      assert fresh_user.is_super_admin
     end
 
     test "update_user_super_admin_status/2 fails when modifying another super admin" do
