@@ -26,23 +26,6 @@ defmodule Raffley.Accounts do
     Repo.get_by(User, email: email)
   end
 
-  @doc """
-  Gets a user by email and password.
-
-  ## Examples
-
-      iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
-
-      iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
-      nil
-
-  """
-  def get_user_by_email_and_password(email, password)
-      when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
-  end
 
   @doc """
   Gets a single user.
@@ -136,44 +119,6 @@ defmodule Raffley.Accounts do
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, [context]))
   end
 
-  @doc """
-  Returns an `%Ecto.Changeset{}` for changing the user password.
-
-  See `Raffley.Accounts.User.password_changeset/3` for a list of supported options.
-
-  ## Examples
-
-      iex> change_user_password(user)
-      %Ecto.Changeset{data: %User{}}
-
-  """
-  def change_user_password(user, attrs \\ %{}, opts \\ []) do
-    User.password_changeset(user, attrs, opts)
-  end
-
-  @doc """
-  Updates the user password.
-
-  Returns the updated user, as well as a list of expired tokens.
-
-  ## Examples
-
-      iex> update_user_password(user, %{password: ...})
-      {:ok, %User{}, [...]}
-
-      iex> update_user_password(user, %{password: "too short"})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def update_user_password(user, attrs) do
-    user
-    |> User.password_changeset(attrs)
-    |> update_user_and_delete_all_tokens()
-    |> case do
-      {:ok, user, expired_tokens} -> {:ok, user, expired_tokens}
-      {:error, :user, changeset, _} -> {:error, changeset}
-    end
-  end
 
   ## Session
 
@@ -211,34 +156,19 @@ defmodule Raffley.Accounts do
   @doc """
   Logs the user in by magic link.
 
-  There are three cases to consider:
+  There are two cases to consider:
 
   1. The user has already confirmed their email. They are logged in
      and the magic link is expired.
 
-  2. The user has not confirmed their email and no password is set.
+  2. The user has not confirmed their email.
      In this case, the user gets confirmed, logged in, and all tokens -
-     including session ones - are expired. In theory, no other tokens
-     exist but we delete all of them for best security practices.
-
-  3. The user has not confirmed their email but a password is set.
-     This cannot happen in the default implementation but may be the
-     source of security pitfalls. See the "Mixing magic link and password registration" section of
-     `mix help phx.gen.auth`.
+     including session ones - are expired.
   """
   def login_user_by_magic_link(token) do
     {:ok, query} = UserToken.verify_magic_link_token_query(token)
 
     case Repo.one(query) do
-      # Prevent session fixation attacks by disallowing magic links for unconfirmed users with password
-      {%User{confirmed_at: nil, hashed_password: hash}, _token} when not is_nil(hash) ->
-        raise """
-        magic link log in is not allowed for unconfirmed users with a password set!
-
-        This cannot happen with the default implementation, which indicates that you
-        might have adapted the code to a different use case. Please make sure to read the
-        "Mixing magic link and password registration" section of `mix help phx.gen.auth`.
-        """
 
       {%User{confirmed_at: nil} = user, _token} ->
         user
@@ -383,38 +313,100 @@ defmodule Raffley.Accounts do
   @doc """
   Updates a user's super admin status.
 
-  This is a sensitive operation that should be carefully controlled through proper
-  authorization checks using can_modify_user_status?/2.
+  This operation requires proper authorization through can_modify_user_status?/2.
+  Only super admins can modify other users' super admin status, and they cannot
+  modify other super admins.
 
   ## Examples
 
-      iex> update_user_super_admin_status(user, true)
+      iex> update_user_super_admin_status(acting_user, target_user, true)
       {:ok, %User{}}
 
-      iex> update_user_super_admin_status(user, false)
-      {:ok, %User{}}
+      iex> update_user_super_admin_status(acting_user, target_user, false)
+      {:error, :unauthorized}
 
   """
-  def update_user_super_admin_status(%User{} = user, is_super_admin) do
-    IO.puts("ACCOUNTS: update_user_super_admin_status called - User ID: #{user.id}, Current is_super_admin: #{user.is_super_admin}")
+  def update_user_super_admin_status(acting_user, %User{} = target_user, is_super_admin) do
+    IO.puts("ACCOUNTS: update_user_super_admin_status called - User ID: #{target_user.id}, Current is_super_admin: #{target_user.is_super_admin}")
     IO.puts("ACCOUNTS: Setting is_super_admin to: #{is_super_admin} (#{typeof(is_super_admin)})")
     
-    changeset = User.admin_changeset(user, %{is_super_admin: is_super_admin})
-    
-    # Log changeset information
-    IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
-    if !changeset.valid? do
-      IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+    if can_modify_user_status?(acting_user, target_user) do
+      changeset = User.admin_changeset(target_user, %{is_super_admin: is_super_admin})
+      
+      # Log changeset information
+      IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+      if !changeset.valid? do
+        IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+      end
+      
+      # Log changes
+      changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
+      IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
+      
+      result = Repo.update(changeset)
+      IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
+      
+      result
+    else
+      IO.puts("ACCOUNTS: Cannot modify user (ID: #{target_user.id}). Operation unauthorized.")
+      {:error, :unauthorized}
     end
+  end
+
+  @doc """
+  Updates a user's super admin status.
+
+  This version of the function provides limited authorization that aligns with can_modify_user_status?/2:
+  - Cannot modify super admin users in any way
+  - Cannot modify super admin status without proper authorization (use the 3-arity version)
+  - Returns {:error, :unauthorized} for any operation involving super admin users
+
+  For full authorization controls, use update_user_super_admin_status/3 with an acting user.
+
+  ## Examples
+
+      iex> update_user_super_admin_status(super_admin_user, false)
+      {:error, :unauthorized}
+
+      iex> update_user_super_admin_status(super_admin_user, true)
+      {:error, :unauthorized}
+
+      iex> update_user_super_admin_status(regular_user, true)
+      {:ok, %User{}}
+
+  @deprecated "Use update_user_super_admin_status/3 instead for proper authorization"
+  """
+  def update_user_super_admin_status(%User{} = user, is_super_admin) do
+    IO.puts("ACCOUNTS: update_user_super_admin_status/2 called - User ID: #{user.id}, Current is_super_admin: #{user.is_super_admin}")
+    IO.puts("ACCOUNTS: Setting is_super_admin to: #{is_super_admin} (#{typeof(is_super_admin)})")
     
-    # Log changes
-    changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
-    IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
+    # Get fresh user data to ensure we have the latest state
+    fresh_user = Repo.get!(User, user.id)
     
-    result = Repo.update(changeset)
-    IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
-    
-    result
+    # Enforce authorization rules from can_modify_user_status?/2:
+    # Enforce authorization rules from can_modify_user_status?/2:
+    # Cannot modify super admin users at all (!target_user.is_super_admin)
+    if fresh_user.is_super_admin do
+      IO.puts("ACCOUNTS: Cannot modify super admin user (ID: #{fresh_user.id}). Operation unauthorized.")
+      {:error, :unauthorized}
+    else
+      changeset = User.admin_changeset(fresh_user, %{is_super_admin: is_super_admin})
+      
+      # Log changeset information
+      IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+      if !changeset.valid? do
+        IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+      end
+      
+      # Log changes
+      changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
+      IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
+      
+      result = Repo.update(changeset)
+      IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
+      
+      result
+    end
   end
 
   @doc """

@@ -10,7 +10,6 @@ defmodule Raffley.AccountsFixtures do
   alias Raffley.Accounts.Scope
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
-  def valid_user_password, do: "hello world!"
 
   def valid_user_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{
@@ -49,12 +48,6 @@ defmodule Raffley.AccountsFixtures do
     Scope.for_user(user)
   end
 
-  def set_password(user) do
-    {:ok, user, _expired_tokens} =
-      Accounts.update_user_password(user, %{password: valid_user_password()})
-
-    user
-  end
 
   def extract_user_token(fun) do
     {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")

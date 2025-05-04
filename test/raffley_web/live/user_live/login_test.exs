@@ -19,12 +19,12 @@ defmodule RaffleyWeb.UserLive.LoginTest do
 
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      {:ok, _lv, html} =
-        form(lv, "#login_form_magic", user: %{email: user.email})
+      result = 
+        lv 
+        |> form("#login_form_magic", %{"user" => %{"email" => user.email}}) 
         |> render_submit()
-        |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert html =~ "If your email is in our system"
+      assert result =~ "If your email is in our system"
 
       assert Raffley.Repo.get_by!(Raffley.Accounts.UserToken, user_id: user.id).context ==
                "login"
@@ -33,12 +33,12 @@ defmodule RaffleyWeb.UserLive.LoginTest do
     test "does not disclose if user is registered", %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      {:ok, _lv, html} =
-        form(lv, "#login_form_magic", user: %{email: "idonotexist@example.com"})
+      result = 
+        lv 
+        |> form("#login_form_magic", %{"user" => %{"email" => "idonotexist@example.com"}}) 
         |> render_submit()
-        |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert html =~ "If your email is in our system"
+      assert result =~ "If your email is in our system"
     end
   end
 
