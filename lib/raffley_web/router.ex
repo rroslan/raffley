@@ -21,8 +21,6 @@ defmodule RaffleyWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
-    get "/survey/:token", PageController, :survey
-    get "/survey", PageController, :survey
   end
 
   # Other scopes may use custom stacks.
@@ -83,20 +81,14 @@ defmodule RaffleyWeb.Router do
   scope "/admin", RaffleyWeb do
     pipe_through [:browser, :require_admin]
 
-    get "/", AdminController, :index
-
-    live_session :require_admin_user,
-      on_mount: [{RaffleyWeb.UserAuth, :ensure_admin}] do
-      # Regular admin routes go here
-      # Add other admin routes here that should be accessible to all admins
+    live_session :require_admin,
+      on_mount: [{RaffleyWeb.UserAuth, :ensure_admin}],
+      layout: {RaffleyWeb.Layouts, :admin} do
+      # First route should be the dashboard
+      live "/", AdminLive.DashboardLive, :index
+      live "/dashboard", AdminLive.DashboardLive, :index
+      live "/users", AdminLive.AdminLive, :redirect_to_admin_dashboard
     end
-  end
-
-  # Redirect old user management URL to new one
-  scope "/admin", RaffleyWeb do
-    pipe_through [:browser, :require_super_admin]
-    
-    get "/users", AdminController, :redirect_to_user_management
   end
 
   # Super Admin routes (only accessible by super admins)
@@ -104,9 +96,13 @@ defmodule RaffleyWeb.Router do
     pipe_through [:browser, :require_super_admin]
 
     live_session :require_super_admin_user,
-      on_mount: [{RaffleyWeb.UserAuth, :ensure_super_admin}] do
-      live "/users", AdminLive.UserManagement, :index
-      live "/users/:id", AdminLive.UserManagement, :edit
+      on_mount: [{RaffleyWeb.UserAuth, :ensure_super_admin}],
+      layout: {RaffleyWeb.Layouts, :admin} do
+      # Add dashboard route
+      live "/", SuperAdminLive.SuperDashboardLive, :index
+      # User management routes
+      live "/users", SuperAdminLive.UserManagementLive, :index
+      live "/users/:id", SuperAdminLive.UserManagementLive, :edit
     end
   end
 
@@ -115,10 +111,16 @@ defmodule RaffleyWeb.Router do
   scope "/", RaffleyWeb do
     pipe_through [:browser, :require_authenticated_user]
 
+    # Survey routes requiring authentication
+    get "/survey", PageController, :survey
+    get "/survey/:token", PageController, :survey
+
     live_session :require_authenticated_user,
-      on_mount: [{RaffleyWeb.UserAuth, :require_authenticated}] do
+      on_mount: [{RaffleyWeb.UserAuth, :require_authenticated}],
+      layout: {RaffleyWeb.Layouts, :app} do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+      live "/users/token/create", TokenLive.Create, :new
     end
   end
 
@@ -126,7 +128,8 @@ defmodule RaffleyWeb.Router do
     pipe_through [:browser]
 
     live_session :current_user,
-      on_mount: [{RaffleyWeb.UserAuth, :mount_current_scope}] do
+      on_mount: [{RaffleyWeb.UserAuth, :mount_current_scope}],
+      layout: {RaffleyWeb.Layouts, :app} do
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
     end

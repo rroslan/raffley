@@ -11,6 +11,7 @@ defmodule Raffley.Accounts.UserToken do
   @magic_link_validity_in_minutes 15
   @change_email_validity_in_days 7
   @session_validity_in_days 14
+  @survey_validity_in_days 7
 
   schema "users_tokens" do
     field :token, :binary
@@ -115,6 +116,45 @@ defmodule Raffley.Accounts.UserToken do
             where: token.inserted_at > ago(^@magic_link_validity_in_minutes, "minute"),
             where: token.sent_to == user.email,
             select: {user, token}
+
+        {:ok, query}
+
+      :error ->
+        :error
+    end
+  end
+
+  @doc """
+  Builds a token for survey access.
+
+  Survey tokens are stored as hashed tokens in the database and are used
+  to grant access to the survey page. The token has a validity period of
+  @survey_validity_in_days days.
+  """
+  def build_survey_token(user) do
+    build_hashed_token(user, "survey", user.email)
+  end
+
+  @doc """
+  Checks if the survey token is valid and returns its underlying lookup query.
+
+  The query returns the user found by the token, if any.
+
+  The given token is valid if it matches its hashed counterpart in the
+  database and if it has not expired (after @survey_validity_in_days).
+  The context must be "survey".
+  """
+  def verify_survey_token_query(token) do
+    case Base.url_decode64(token, padding: false) do
+      {:ok, decoded_token} ->
+        hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
+
+        query =
+          from token in by_token_and_context_query(hashed_token, "survey"),
+            join: user in assoc(token, :user),
+            where: token.inserted_at > ago(@survey_validity_in_days, "day"),
+            where: token.sent_to == user.email,
+            select: user
 
         {:ok, query}
 

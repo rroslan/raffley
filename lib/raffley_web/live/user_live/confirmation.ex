@@ -32,6 +32,7 @@ defmodule RaffleyWeb.UserLive.Confirmation do
             class="space-y-4"
           >
             <input type="hidden" name="user[token]" value={@token} />
+            <input type="hidden" name="user[return_to]" value={@return_to} />
             <div class="form-control w-full">
               <label class="label" for="confirmation_form_remember_me">
                 <span class="label-text">Keep me logged in</span>
@@ -58,6 +59,7 @@ defmodule RaffleyWeb.UserLive.Confirmation do
             class="space-y-4"
           >
             <input type="hidden" name="user[token]" value={@token} />
+            <input type="hidden" name="user[return_to]" value={@return_to} />
             <div class="form-control w-full">
               <label class="label" for="login_form_remember_me">
                 <span class="label-text">Keep me logged in</span>
@@ -84,16 +86,23 @@ defmodule RaffleyWeb.UserLive.Confirmation do
     """
   end
 
-  def mount(%{"token" => token}, _session, socket) do
+   def mount(%{"token" => token}, _session, socket) do
     if user = Accounts.get_user_by_magic_link_token(token) do
-      form = to_form(%{})
+      # Determine the return path based on user role
+      return_path = get_return_path(user)
+      
+      # Create the form with the return path
+      form_data = to_form(%{"return_to" => return_path})
 
-      {:ok, assign(socket, 
-        user: user, 
-        form: form, 
-        token: token,
-        trigger_submit: false),
-       temporary_assigns: [form: nil]}
+      {:ok,
+       socket
+       |> assign(
+         user: user,
+         form: form_data,
+         token: token,
+         trigger_submit: false,
+         return_to: return_path
+       ), temporary_assigns: [form: nil]}
     else
       {:ok,
        socket
@@ -104,5 +113,14 @@ defmodule RaffleyWeb.UserLive.Confirmation do
 
   def handle_event("submit", _params, socket) do
     {:noreply, assign(socket, trigger_submit: true)}
+  end
+
+  # Helper to get return path based on user role
+  defp get_return_path(user) do
+    cond do
+      user.is_super_admin -> ~p"/admin/super"
+      user.is_admin -> ~p"/admin/dashboard"
+      true -> ~p"/users/settings"
+    end
   end
 end

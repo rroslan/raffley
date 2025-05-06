@@ -50,9 +50,13 @@ defmodule RaffleyWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView
+      use Phoenix.LiveView,
+        layout: {RaffleyWeb.Layouts, :app}  # Default layout
 
       unquote(html_helpers())
+
+      # Import live view specific helpers
+      import Phoenix.Component
     end
   end
 

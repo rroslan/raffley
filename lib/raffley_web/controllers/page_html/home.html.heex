@@ -1,32 +1,41 @@
-<Layouts.flash_group flash={@flash} />
-
-
 <div class="flex justify-center items-center min-h-[calc(100vh-10rem)] px-4">
   <div class="card w-full max-w-md bg-base-100 shadow-xl p-6">
     <h2 class="text-2xl font-semibold text-center mb-6">Access Survey</h2>
-
-  
-    <form class="space-y-4">
-      <div>
-        <label for="token_input" class="block text-sm font-medium mb-1">
-          Survey Token Link
-        </label>
-        <input
+    
+    <.form :let={f} for={%{}} as={:survey} method="get" id="survey-form">
+      <div class="space-y-4">
+        <.input
+          field={f[:token]}
           type="text"
-          id="token_input"
-          name="token"
-          class="input input-bordered w-full"
-          placeholder="Paste your token link here..."
-          aria-label="Survey Token Link Input"
+          label="Survey Token"
           required
+          id="token-input"
+          phx-change="validate_token"
         />
+        <.button phx-disable-with="Accessing..." class="w-full" type="button" 
+          onclick="navigateToSurvey()">
+          Access Survey
+        </.button>
       </div>
-      <button type="submit" class="btn btn-primary w-full">
-        Go to Survey
-      </button>
-    </form>
-    <p class="text-sm text-base-content/70 text-center mt-4">
-      Paste the link provided by the agent to access the survey.
-    </p>
+    </.form>
+    
+    <script>
+      function navigateToSurvey() {
+        const token = document.getElementById('token-input').value;
+        if (token && token.trim()) {
+          window.location.href = `/survey/${token.trim()}`;
+        }
+      }
+    </script>
+
+    <div class="divider mt-4">or</div>
+
+    <div class="text-center">
+      <.link navigate={~p"/users/log-in"} class="btn btn-ghost btn-sm">
+        Log in
+      </.link>
+    </div>
   </div>
 </div>
+
+<Layouts.flash_group flash={@flash} />

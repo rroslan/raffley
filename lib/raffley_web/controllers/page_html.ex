@@ -6,5 +6,9 @@ defmodule RaffleyWeb.PageHTML do
   """
   use RaffleyWeb, :html
 
+  # Import core components
+  import RaffleyWeb.CoreComponents
+  alias RaffleyWeb.Layouts
+  
   embed_templates "page_html/*"
 end

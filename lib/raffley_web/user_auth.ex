@@ -33,16 +33,25 @@ defmodule RaffleyWeb.UserAuth do
   or falls back to the `signed_in_path/1`.
   """
   def log_in_user(conn, user, params \\ %{}) do
+    # Get the return path before any session operations
     user_return_to = get_session(conn, :user_return_to)
-
-    conn = create_or_extend_session(conn, user, params)
-
-    # Always redirect super_admin users to user management, ignoring user_return_to path
-    if user.is_super_admin do
-      redirect(conn, to: ~p"/admin/super/users")
-    else
-      redirect(conn, to: user_return_to || signed_in_path(conn))
-    end
+    
+    # Create or extend the session
+    conn = conn |> create_or_extend_session(user, params)
+    
+    # Use the return path from the renewed session, falling back to the original value
+    # or the signed_in_path if neither is available
+    # Consider session flags for different login paths
+    is_magic_link = get_session(conn, :magic_link)
+    is_confirmed = get_session(conn, :confirmed)
+    
+    redirect_path = get_session(conn, :user_return_to) || user_return_to || signed_in_path(conn, is_magic_link, is_confirmed)
+    
+    conn
+    |> delete_session(:user_return_to)  # Clean up after using it
+    |> delete_session(:magic_link)  # Clean up magic link flag
+    |> delete_session(:confirmed)  # Clean up confirmed flag
+    |> redirect(to: redirect_path)
   end
 
   @doc """
@@ -115,17 +124,32 @@ defmodule RaffleyWeb.UserAuth do
   # renew_session function to customize this behaviour.
   defp create_or_extend_session(conn, user, params) do
     token = Accounts.generate_user_session_token(user)
+    
+    # Ensure we preserve critical session values before renewal
     remember_me = get_session(conn, :user_remember_me)
-
-    conn
+    user_return_to = get_session(conn, :user_return_to)
+    
+    # Renew session and create a new token
+    conn = conn
     |> renew_session(user)
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params, remember_me)
+    
+    # Preserve the return_to path if it exists
+    if user_return_to do
+      put_session(conn, :user_return_to, user_return_to)
+    else
+      conn
+    end
   end
 
   # Do not renew session if the user is already logged in
   # to prevent CSRF errors or data being last in tabs that are still open
-  defp renew_session(conn, user) when conn.assigns.current_scope.user.id == user.id do
+  # When the user is already logged in and we're just extending their session
+  defp renew_session(conn, user) when is_map_key(conn.assigns, :current_scope) and
+                                     not is_nil(conn.assigns.current_scope) and
+                                     not is_nil(conn.assigns.current_scope.user) and
+                                     conn.assigns.current_scope.user.id == user.id do
     conn
   end
 
@@ -145,6 +169,7 @@ defmodule RaffleyWeb.UserAuth do
   #       |> put_session(:preferred_locale, preferred_locale)
   #     end
   #
+  # For new logins or when no user is in the session
   defp renew_session(conn, _user) do
     delete_csrf_token()
 
@@ -153,13 +178,14 @@ defmodule RaffleyWeb.UserAuth do
     |> clear_session()
   end
 
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _),
+  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"} = _params, _remember_me),
     do: write_remember_me_cookie(conn, token)
 
   defp maybe_write_remember_me_cookie(conn, token, _params, true),
     do: write_remember_me_cookie(conn, token)
 
-  defp maybe_write_remember_me_cookie(conn, _token, _params, _), do: conn
+  defp maybe_write_remember_me_cookie(conn, _token, _params, _remember_me),
+    do: conn
 
   defp write_remember_me_cookie(conn, token) do
     conn
@@ -229,16 +255,39 @@ defmodule RaffleyWeb.UserAuth do
     {:cont, mount_current_scope(socket, session)}
   end
 
-  def on_mount(:require_authenticated, _params, session, socket) do
+  def on_mount(:require_authenticated, params, session, socket) do
     socket = mount_current_scope(socket, session)
 
     if socket.assigns.current_scope && socket.assigns.current_scope.user do
       {:cont, socket}
     else
+      # Get connect_params safely - only attempt to access if we're in mount
+      # Store any connect_params in the socket during mount phase
+      socket = 
+        if Phoenix.LiveView.connected?(socket) do
+          # This is safe during the mount phase
+          connect_params = Phoenix.LiveView.get_connect_params(socket)
+          Phoenix.Component.assign(socket, :connect_params, connect_params)
+        else
+          socket
+        end
+
+      # Then use the stored connect_params or fallback to other sources
+      return_to = Phoenix.Component.assign_new(socket, :return_to, fn ->
+        cond do
+          is_map(socket.assigns[:connect_params]) && socket.assigns.connect_params["_live_referer"] ->
+            socket.assigns.connect_params["_live_referer"]
+          params["return_to"] ->
+            params["return_to"]
+          true ->
+            ~p"/users/settings"
+        end
+      end).assigns.return_to
+
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+        |> Phoenix.LiveView.push_navigate(to: ~p"/users/log-in?#{[return_to: return_to]}")
 
       {:halt, socket}
     end
@@ -258,23 +307,34 @@ defmodule RaffleyWeb.UserAuth do
       {:halt, socket}
     end
   end
-  
-  def on_mount(:ensure_admin, _params, session, socket) do
-    socket = mount_current_scope(socket, session)
 
-    if socket.assigns.current_scope && socket.assigns.current_scope.user && socket.assigns.current_scope.user.is_admin do
+  def on_mount(:ensure_admin, params, session, socket) do
+    socket = mount_current_scope(socket, session)
+    if socket.assigns.current_scope && 
+       socket.assigns.current_scope.user && 
+       (socket.assigns.current_scope.user.is_admin || socket.assigns.current_scope.user.is_super_admin) do
       {:cont, socket}
     else
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "You must be an admin to access that page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/")
+        |> Phoenix.Component.assign_new(:return_to, fn -> 
+          cond do
+            is_map(socket.assigns[:connect_params]) && socket.assigns.connect_params["_live_referer"] ->
+              socket.assigns.connect_params["_live_referer"]
+            params["return_to"] ->
+              params["return_to"]
+            true ->
+              ~p"/users/settings"
+          end
+        end)
+        |> Phoenix.LiveView.push_navigate(to: ~p"/users/log-in")
 
       {:halt, socket}
     end
   end
-  
-  def on_mount(:ensure_super_admin, _params, session, socket) do
+
+  def on_mount(:ensure_super_admin, params, session, socket) do
     socket = mount_current_scope(socket, session)
 
     if socket.assigns.current_scope && socket.assigns.current_scope.user && socket.assigns.current_scope.user.is_super_admin do
@@ -283,13 +343,33 @@ defmodule RaffleyWeb.UserAuth do
       socket =
         socket
         |> Phoenix.LiveView.put_flash(:error, "You must be a super admin to access that page.")
-        |> Phoenix.LiveView.redirect(to: ~p"/")
+        |> Phoenix.Component.assign_new(:return_to, fn -> 
+          cond do
+            is_map(socket.assigns[:connect_params]) && socket.assigns.connect_params["_live_referer"] ->
+              socket.assigns.connect_params["_live_referer"]
+            params["return_to"] ->
+              params["return_to"]
+            true ->
+              ~p"/users/settings"
+          end
+        end)
+        |> Phoenix.LiveView.push_navigate(to: ~p"/users/log-in")
 
       {:halt, socket}
     end
   end
 
+
   defp mount_current_scope(socket, session) do
+    # Store connect_params during mount if available
+    socket = 
+      if Phoenix.LiveView.connected?(socket) do
+        connect_params = Phoenix.LiveView.get_connect_params(socket)
+        Phoenix.Component.assign(socket, :connect_params, connect_params)
+      else
+        socket
+      end
+
     Phoenix.Component.assign_new(socket, :current_scope, fn ->
       {user, _} =
         if user_token = session["user_token"] do
@@ -301,17 +381,30 @@ defmodule RaffleyWeb.UserAuth do
   end
 
   @doc "Returns the path to redirect to after log in."
-  # super_admin users are redirected to user management
-  def signed_in_path(%Plug.Conn{assigns: %{current_scope: %Scope{user: %Accounts.User{is_super_admin: true}}}}) do
-    ~p"/admin/super/users"
+  # Handle different login cases based on flags
+  def signed_in_path(conn, is_magic_link \\ nil, is_confirmed \\ nil)
+  
+  # 1. For magic link logins, redirect to settings (highest precedence since it's independent of user type)
+  def signed_in_path(_conn, true, _is_confirmed), do: ~p"/users/settings"
+  
+  # 2. super_admin users are redirected to user management
+  def signed_in_path(%Plug.Conn{assigns: %{current_scope: %Scope{user: %Accounts.User{is_super_admin: true}}}}, _is_magic_link, _is_confirmed) do
+    ~p"/admin/super"
   end
 
-  # regular users are redirected to settings
-  def signed_in_path(%Plug.Conn{assigns: %{current_scope: %Scope{user: %Accounts.User{}}}}) do
-    ~p"/users/settings"
+  # 3. admin users are redirected to admin dashboard
+  def signed_in_path(%Plug.Conn{assigns: %{current_scope: %Scope{user: %Accounts.User{is_admin: true}}}}, _is_magic_link, _is_confirmed) do
+    ~p"/admin/dashboard"
   end
 
-  def signed_in_path(_), do: ~p"/"
+  # 4. regular users are redirected to token creation if not confirmed
+  def signed_in_path(%Plug.Conn{assigns: %{current_scope: %Scope{user: %Accounts.User{}}}}, _is_magic_link, is_confirmed) when is_confirmed != true, do: ~p"/users/token/create"
+
+  # 5. For confirmed regular users, redirect to root
+  def signed_in_path(_conn, _is_magic_link, true), do: ~p"/"
+
+  # Default fallback case for unexpected situations
+  def signed_in_path(_, _, _), do: ~p"/"
 
   @doc """
   Plug for routes that require the user to be authenticated.
@@ -338,12 +431,15 @@ defmodule RaffleyWeb.UserAuth do
   Plug for routes that require the user to be an admin.
   """
   def ensure_admin(conn, _opts) do
-    if conn.assigns.current_scope && conn.assigns.current_scope.user && conn.assigns.current_scope.user.is_admin do
+    if conn.assigns.current_scope && 
+       conn.assigns.current_scope.user && 
+       (conn.assigns.current_scope.user.is_admin || conn.assigns.current_scope.user.is_super_admin) do
       conn
     else
       conn
       |> put_flash(:error, "You must be an admin to access that page.")
-      |> redirect(to: ~p"/")
+      |> maybe_store_return_to()  # Add this line
+      |> redirect(to: ~p"/users/log-in")  # Change redirect to login page
       |> halt()
     end
   end
@@ -357,7 +453,8 @@ defmodule RaffleyWeb.UserAuth do
     else
       conn
       |> put_flash(:error, "You must be a super admin to access that page.")
-      |> redirect(to: ~p"/")
+      |> maybe_store_return_to()  # Add this line
+      |> redirect(to: ~p"/users/log-in")  # Change redirect to login page
       |> halt()
     end
   end

@@ -1,0 +1,25 @@
+<div class="mx-auto max-w-sm">
+  <.header class="text-center">
+    Create Token
+    <:subtitle>Enter a 12-digit ID to create a new survey token</:subtitle>
+  </.header>
+</div>
+
+<.form
+  for={@form}
+  id="token-form"
+  phx-submit="save"
+  phx-change="validate"
+>
+  <.input field={@form[:token_id]} type="text" label="Token ID" placeholder="Enter 12 digits" maxlength="12" phx-debounce="blur" />
+  
+  <div class="mb-6">
+    <div class="mt-1 text-sm text-gray-500">
+      <p>These tokens allow survey participants to access the survey pages</p>
+    </div>
+  </div>
+  
+  <.button phx-disable-with="Creating..." class="w-full">
+    Create Token
+  </.button>
+</.form>

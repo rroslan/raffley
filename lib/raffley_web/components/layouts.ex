@@ -11,16 +11,56 @@ defmodule RaffleyWeb.Layouts do
 
   embed_templates "layouts/*"
 
+  slot :inner_block
+  attr :current_scope, :map
+  attr :flash, :map
+
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
+    <header class="navbar px-2 sm:px-6 lg:px-8">
       <div class="flex-1">
-        <.link href="/" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
-          <img src={~p"/images/raffley-logo.svg"} width="42" class="min-w-[42px]" alt="Raffley Logo" />
+        <.link href="/" class="flex items-center text-base-content hover:opacity-80">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
         </.link>
       </div>
       <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
+        <ul class="flex flex-row items-center space-x-2 sm:space-x-4">
+          <%= if @current_scope do %>
+
+            <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
+              <li class="hidden md:block">
+                <.link
+                  href={~p"/admin/dashboard"}
+                  class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
+                >
+                  Admin
+                </.link>
+              </li>
+            <% end %>
+
+            <li>
+              <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">
+                  <span class="hidden md:inline"><%= @current_scope.user.email %></span>
+                  <.icon name="hero-bars-3" class="md:hidden h-5 w-5" />
+                </label>
+                <ul tabindex="0" class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm">
+                  <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
+                    <li class="md:hidden"><.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link></li>
+                  <% end %>
+                  <li><.link href={~p"/users/settings"} class="py-1">Settings</.link></li>
+                  <li><.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link></li>
+                </ul>
+              </div>
+            </li>
+          <% else %>
+            <li>
+              <.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">Log in</.link>
+            </li>
+          <% end %>
+
           <li>
             <.theme_toggle />
           </li>
@@ -28,9 +68,13 @@ defmodule RaffleyWeb.Layouts do
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main class="px-2 py-16 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
+        <%= if assigns[:inner_content] do %>
+          <%= @inner_content %>
+        <% else %>
+          <%= render_slot(@inner_block) %>
+        <% end %>
       </div>
     </main>
 
@@ -88,30 +132,102 @@ defmodule RaffleyWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
+    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full scale-90 sm:scale-100">
       <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 transition-[left]" />
 
       <button
         phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "system"})}
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex p-1 sm:p-1.5 cursor-pointer w-1/3"
       >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-computer-desktop-micro" class="size-3 opacity-75 hover:opacity-100" />
       </button>
 
       <button
         phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "light"})}
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex p-1 sm:p-1.5 cursor-pointer w-1/3"
       >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun-micro" class="size-3 opacity-75 hover:opacity-100" />
       </button>
 
       <button
         phx-click={JS.dispatch("phx:set-theme", detail: %{theme: "dark"})}
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex p-1 sm:p-1.5 cursor-pointer w-1/3"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-moon-micro" class="size-3 opacity-75 hover:opacity-100" />
       </button>
     </div>
+    """
+  end
+
+  
+  slot :inner_block
+  attr :current_scope, :map
+  attr :flash, :map
+
+  def admin(assigns) do
+    ~H"""
+    <header class="navbar px-2 sm:px-6 lg:px-8">
+      <div class="flex-1">
+        <.link href="/" class="flex items-center text-base-content hover:opacity-80">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+        </.link>
+      </div>
+      <div class="flex-none">
+        <ul class="flex flex-row items-center space-x-2 sm:space-x-4">
+          <%= if @current_scope do %>
+
+            <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
+              <li class="hidden md:block">
+                <.link
+                  href={~p"/admin/dashboard"}
+                  class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
+                >
+                  Admin
+                </.link>
+              </li>
+            <% end %>
+
+            <li>
+              <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">
+                  <span class="hidden md:inline"><%= @current_scope.user.email %></span>
+                  <.icon name="hero-bars-3" class="md:hidden h-5 w-5" />
+                </label>
+                <ul tabindex="0" class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm">
+                  <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
+                    <li class="md:hidden"><.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link></li>
+                  <% end %>
+                  <li><.link href={~p"/users/settings"} class="py-1">Settings</.link></li>
+                  <li><.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link></li>
+                </ul>
+              </div>
+            </li>
+          <% else %>
+            <li>
+              <.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">Log in</.link>
+            </li>
+          <% end %>
+
+          <li>
+            <.theme_toggle />
+          </li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="px-2 py-4 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-full lg:max-w-7xl">
+        <%= if assigns[:inner_content] do %>
+          <%= @inner_content %>
+        <% else %>
+          <%= render_slot(@inner_block) %>
+        <% end %>
+      </div>
+    </main>
+
+    <.flash_group flash={@flash} />
     """
   end
 end

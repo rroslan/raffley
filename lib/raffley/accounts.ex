@@ -433,4 +433,29 @@ defmodule Raffley.Accounts do
   end
 
   def can_modify_user_status?(_acting_user, _target_user), do: false
+
+  @doc """
+  Returns the total count of users in the system.
+  """
+  def count_users do
+    Repo.aggregate(User, :count)
+  end
+
+  @doc """
+  Returns the count of admin users (excluding super admins).
+  """
+  def count_admin_users do
+    User
+    |> where([u], u.is_admin == true and u.is_super_admin == false)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Returns the count of super admin users.
+  """
+  def count_super_admin_users do
+    User
+    |> where([u], u.is_super_admin == true)
+    |> Repo.aggregate(:count)
+  end
 end
