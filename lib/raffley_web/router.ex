@@ -77,6 +77,11 @@ defmodule RaffleyWeb.Router do
     plug :ensure_super_admin
   end
 
+  pipeline :require_vendor do
+    plug :require_authenticated_user
+    plug :ensure_vendor
+  end
+
   # Regular admin routes (accessible by both admins and super admins)
   scope "/admin", RaffleyWeb do
     pipe_through [:browser, :require_admin]
@@ -103,6 +108,17 @@ defmodule RaffleyWeb.Router do
       # User management routes
       live "/users", SuperAdminLive.UserManagementLive, :index
       live "/users/:id", SuperAdminLive.UserManagementLive, :edit
+    end
+  end
+
+  # Vendor routes (accessible by vendors only)
+  scope "/vendor", RaffleyWeb do
+    pipe_through [:browser, :require_vendor]
+
+    live_session :require_vendor,
+      on_mount: [{RaffleyWeb.UserAuth, :ensure_vendor}],
+      layout: {RaffleyWeb.Layouts, :app} do
+      live "/dashboard", VendorLive.DashboardLive, :index
     end
   end
 

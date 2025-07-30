@@ -1,7 +1,7 @@
 <div class="flex justify-center items-center min-h-[calc(100vh-10rem)] px-4">
   <div class="card w-full max-w-md bg-base-100 shadow-xl p-6">
     <h2 class="text-2xl font-semibold text-center mb-6">Access Survey</h2>
-    
+
     <.form :let={f} for={%{}} as={:survey} method="get" id="survey-form">
       <div class="space-y-4">
         <.input
@@ -12,13 +12,17 @@
           id="token-input"
           phx-change="validate_token"
         />
-        <.button phx-disable-with="Accessing..." class="w-full" type="button" 
-          onclick="navigateToSurvey()">
+        <.button
+          phx-disable-with="Accessing..."
+          class="w-full btn-primary"
+          type="button"
+          onclick="navigateToSurvey()"
+        >
           Access Survey
         </.button>
       </div>
     </.form>
-    
+
     <script>
       function navigateToSurvey() {
         const token = document.getElementById('token-input').value;

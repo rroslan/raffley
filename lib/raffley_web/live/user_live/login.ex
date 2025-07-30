@@ -23,46 +23,46 @@ defmodule RaffleyWeb.UserLive.Login do
               </:subtitle>
             </.header>
 
-          <div :if={local_mail_adapter?()} class="alert alert-info">
-            <.icon name="hero-information-circle" class="h-6 w-6 shrink-0" />
-            <div>
-              <p>You are running the local mail adapter.</p>
-              <p>
-                To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
-              </p>
+            <div :if={local_mail_adapter?()} class="alert alert-info">
+              <.icon name="hero-information-circle" class="h-6 w-6 shrink-0" />
+              <div>
+                <p>You are running the local mail adapter.</p>
+                <p>
+                  To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <.form
-            for={@form}
-            id="login_form_magic"
-            action={~p"/users/log-in"}
-            phx-submit="submit_magic"
-            class="space-y-4"
-          >
-            <div class="form-control w-full">
-              <label class="label" for="login_form_magic_email">
-                <span class="label-text">Email</span>
-              </label>
-              <input
-                type="email"
-                name="user[email]"
-                id="login_form_magic_email"
-                value={@email}
-                readonly={!!@current_scope}
-                class={[
-                  "input input-bordered w-full",
-                  !!@current_scope && "bg-base-200"
-                ]}
-                autocomplete="username"
-                required
-                phx-mounted={JS.focus()}
-              />
-            </div>
-            <.button phx-disable-with="Sending..." class="w-full btn-primary">
-              Log in with email <span aria-hidden="true">→</span>
-            </.button>
-          </.form>
+            <.form
+              for={@form}
+              id="login_form_magic"
+              action={~p"/users/log-in"}
+              phx-submit="submit_magic"
+              class="space-y-4"
+            >
+              <div class="form-control w-full">
+                <label class="label" for="login_form_magic_email">
+                  <span class="label-text">Email</span>
+                </label>
+                <input
+                  type="email"
+                  name="user[email]"
+                  id="login_form_magic_email"
+                  value={@email}
+                  readonly={!!@current_scope}
+                  class={[
+                    "input input-bordered w-full",
+                    !!@current_scope && "bg-base-200"
+                  ]}
+                  autocomplete="username"
+                  required
+                  phx-mounted={JS.focus()}
+                />
+              </div>
+              <.button phx-disable-with="Sending..." class="w-full btn-primary">
+                Log in with email <span aria-hidden="true">→</span>
+              </.button>
+            </.form>
           </div>
         </div>
       </div>
@@ -71,7 +71,7 @@ defmodule RaffleyWeb.UserLive.Login do
   end
 
   def mount(_params, _session, socket) do
-    email = 
+    email =
       Phoenix.Flash.get(socket.assigns.flash, :email) ||
         get_in(socket.assigns, [:current_scope, Access.key(:user), Access.key(:email)])
 

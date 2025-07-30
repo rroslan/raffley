@@ -64,15 +64,19 @@ defmodule RaffleyWeb.CoreComponents do
         @kind == :info && "alert-info",
         @kind == :error && "alert-error"
       ]}>
-        <.icon :if={@kind == :info} name="hero-information-circle-mini" class="size-5 shrink-0" />
-        <.icon :if={@kind == :error} name="hero-exclamation-circle-mini" class="size-5 shrink-0" />
+        <.icon :if={@kind == :info} name="hero-information-circle-mini" class="icon-default shrink-0" />
+        <.icon
+          :if={@kind == :error}
+          name="hero-exclamation-circle-mini"
+          class="icon-default shrink-0"
+        />
         <div>
           <p :if={@title} class="font-semibold">{@title}</p>
           <p>{msg}</p>
         </div>
         <div class="flex-1" />
         <button type="button" class="group self-start cursor-pointer" aria-label={gettext("close")}>
-          <.icon name="hero-x-mark-solid" class="size-5 opacity-40 group-hover:opacity-70" />
+          <.icon name="hero-x-mark-solid" class="icon-default opacity-40 group-hover:opacity-70" />
         </button>
       </div>
     </div>
@@ -190,7 +194,7 @@ defmodule RaffleyWeb.CoreComponents do
             name={@name}
             value="true"
             checked={@checked}
-            class={@class || "checkbox checkbox-sm"}
+            class={@class || "checkbox-default"}
             {@rest}
           />{@label}
         </span>
@@ -267,8 +271,8 @@ defmodule RaffleyWeb.CoreComponents do
   # Helper used by inputs to generate form errors
   defp error(assigns) do
     ~H"""
-    <p class="mt-1.5 flex gap-2 items-center text-sm text-error">
-      <.icon name="hero-exclamation-circle-mini" class="size-5" />
+    <p class="error-text">
+      <.icon name="hero-exclamation-circle-mini" class="icon-default" />
       {render_slot(@inner_block)}
     </p>
     """
@@ -287,10 +291,10 @@ defmodule RaffleyWeb.CoreComponents do
     ~H"""
     <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4", @class]}>
       <div>
-        <h1 class="text-lg font-semibold leading-8">
+        <h1 class="section-header">
           {render_slot(@inner_block)}
         </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
+        <p :if={@subtitle != []} class="text-sm text-muted">
           {render_slot(@subtitle)}
         </p>
       </div>
@@ -361,6 +365,7 @@ defmodule RaffleyWeb.CoreComponents do
     </table>
     """
   end
+
   @doc """
   Renders a data list.
 
@@ -404,7 +409,7 @@ defmodule RaffleyWeb.CoreComponents do
   ## Examples
 
       <.icon name="hero-x-mark-solid" />
-      <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
+      <.icon name="hero-arrow-path" class="ml-1 h-3 w-3 motion-safe:animate-spin" />
   """
   attr :name, :string, required: true
   attr :class, :string, default: "size-4"
@@ -452,21 +457,21 @@ defmodule RaffleyWeb.CoreComponents do
     >
       <div class="modal-box max-w-3xl">
         <header class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold leading-8">
-            <%= render_slot(@title) %>
+          <h2 class="section-header">
+            {render_slot(@title)}
           </h2>
           <button
             phx-click={hide_modal(@id)}
-            class="btn btn-sm btn-circle absolute right-2 top-2"
+            class="modal-close-btn"
             aria-label={gettext("close")}
             type="button"
           >
-            <.icon name="hero-x-mark-solid" class="size-4" />
+            <.icon name="hero-x-mark-solid" class="icon-small" />
           </button>
         </header>
-        <%= render_slot(@inner_block) %>
+        {render_slot(@inner_block)}
         <div :if={@footer != []} class="mt-6 flex items-center justify-end">
-          <%= render_slot(@footer) %>
+          {render_slot(@footer)}
         </div>
       </div>
     </div>

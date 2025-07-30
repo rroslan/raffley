@@ -17,10 +17,21 @@ defmodule RaffleyWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-2 sm:px-6 lg:px-8">
+    <header class="navbar-default">
       <div class="flex-1">
-        <.link href="/" class="flex items-center text-base-content hover:opacity-80">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6">
+        <.link href="/" class="link-nav">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="md:icon-large"
+          >
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
         </.link>
@@ -28,13 +39,9 @@ defmodule RaffleyWeb.Layouts do
       <div class="flex-none">
         <ul class="flex flex-row items-center space-x-2 sm:space-x-4">
           <%= if @current_scope do %>
-
             <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
-              <li class="hidden md:block">
-                <.link
-                  href={~p"/admin/dashboard"}
-                  class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
-                >
+              <li class="hidden-mobile">
+                <.link href={~p"/admin/dashboard"} class="btn-ghost-nav">
                   Admin
                 </.link>
               </li>
@@ -42,22 +49,34 @@ defmodule RaffleyWeb.Layouts do
 
             <li>
               <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">
-                  <span class="hidden md:inline"><%= @current_scope.user.email %></span>
-                  <.icon name="hero-bars-3" class="md:hidden h-5 w-5" />
+                <label tabindex="0" class="btn-ghost-nav">
+                  <span class="hidden-mobile">{@current_scope.user.email}</span>
+                  <.icon name="hero-bars-3" class="hidden-desktop icon-default" />
                 </label>
-                <ul tabindex="0" class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm">
+                <ul
+                  tabindex="0"
+                  class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm"
+                >
                   <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
-                    <li class="md:hidden"><.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link></li>
+                    <li class="hidden-desktop">
+                      <.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link>
+                    </li>
                   <% end %>
                   <li><.link href={~p"/users/settings"} class="py-1">Settings</.link></li>
-                  <li><.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link></li>
+                  <li>
+                    <.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link>
+                  </li>
                 </ul>
               </div>
             </li>
           <% else %>
             <li>
-              <.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">Log in</.link>
+              <.link
+                href={~p"/users/log-in"}
+                class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
+              >
+                Log in
+              </.link>
             </li>
           <% end %>
 
@@ -71,9 +90,9 @@ defmodule RaffleyWeb.Layouts do
     <main class="px-2 py-16 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
         <%= if assigns[:inner_content] do %>
-          <%= @inner_content %>
+          {@inner_content}
         <% else %>
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         <% end %>
       </div>
     </main>
@@ -159,17 +178,27 @@ defmodule RaffleyWeb.Layouts do
     """
   end
 
-  
   slot :inner_block
   attr :current_scope, :map
   attr :flash, :map
 
   def admin(assigns) do
     ~H"""
-    <header class="navbar px-2 sm:px-6 lg:px-8">
+    <header class="navbar-default">
       <div class="flex-1">
-        <.link href="/" class="flex items-center text-base-content hover:opacity-80">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="md:w-6 md:h-6">
+        <.link href="/" class="link-nav">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="md:icon-large"
+          >
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
         </.link>
@@ -177,13 +206,9 @@ defmodule RaffleyWeb.Layouts do
       <div class="flex-none">
         <ul class="flex flex-row items-center space-x-2 sm:space-x-4">
           <%= if @current_scope do %>
-
             <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
-              <li class="hidden md:block">
-                <.link
-                  href={~p"/admin/dashboard"}
-                  class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
-                >
+              <li class="hidden-mobile">
+                <.link href={~p"/admin/dashboard"} class="btn-ghost-nav">
                   Admin
                 </.link>
               </li>
@@ -191,22 +216,34 @@ defmodule RaffleyWeb.Layouts do
 
             <li>
               <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">
-                  <span class="hidden md:inline"><%= @current_scope.user.email %></span>
-                  <.icon name="hero-bars-3" class="md:hidden h-5 w-5" />
+                <label tabindex="0" class="btn-ghost-nav">
+                  <span class="hidden-mobile">{@current_scope.user.email}</span>
+                  <.icon name="hero-bars-3" class="hidden-desktop icon-default" />
                 </label>
-                <ul tabindex="0" class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm">
+                <ul
+                  tabindex="0"
+                  class="menu dropdown-content z-[1] p-0.5 shadow bg-base-100 rounded-box w-52 mt-1 text-sm"
+                >
                   <%= if @current_scope.user.is_admin and not @current_scope.user.is_super_admin do %>
-                    <li class="md:hidden"><.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link></li>
+                    <li class="hidden-desktop">
+                      <.link href={~p"/admin/dashboard"} class="py-1">Admin Dashboard</.link>
+                    </li>
                   <% end %>
                   <li><.link href={~p"/users/settings"} class="py-1">Settings</.link></li>
-                  <li><.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link></li>
+                  <li>
+                    <.link href={~p"/users/log-out"} method="delete" class="py-1">Log out</.link>
+                  </li>
                 </ul>
               </div>
             </li>
           <% else %>
             <li>
-              <.link href={~p"/users/log-in"} class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10">Log in</.link>
+              <.link
+                href={~p"/users/log-in"}
+                class="btn btn-ghost btn-sm h-8 min-h-8 sm:h-10 sm:min-h-10"
+              >
+                Log in
+              </.link>
             </li>
           <% end %>
 
@@ -220,9 +257,9 @@ defmodule RaffleyWeb.Layouts do
     <main class="px-2 py-4 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-full lg:max-w-7xl">
         <%= if assigns[:inner_content] do %>
-          <%= @inner_content %>
+          {@inner_content}
         <% else %>
-          <%= render_slot(@inner_block) %>
+          {render_slot(@inner_block)}
         <% end %>
       </div>
     </main>

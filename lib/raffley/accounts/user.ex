@@ -8,6 +8,7 @@ defmodule Raffley.Accounts.User do
     field :authenticated_at, :utc_datetime, virtual: true
     field :is_admin, :boolean, default: false
     field :is_super_admin, :boolean, default: false
+    field :is_vendor, :boolean, default: false
 
     timestamps(type: :utc_datetime)
   end
@@ -25,7 +26,7 @@ defmodule Raffley.Accounts.User do
   """
   def email_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :is_admin, :is_super_admin])
+    |> cast(attrs, [:email, :is_admin, :is_super_admin, :is_vendor])
     |> validate_email(opts)
   end
 
@@ -56,7 +57,6 @@ defmodule Raffley.Accounts.User do
     end
   end
 
-
   @doc """
   Confirms the account by setting `confirmed_at`.
   """
@@ -65,16 +65,16 @@ defmodule Raffley.Accounts.User do
     change(user, confirmed_at: now)
   end
 
-
   @doc """
   A user changeset for updating admin status.
   """
   def admin_changeset(user, attrs) do
     user
-    |> cast(attrs, [:is_admin, :is_super_admin])
+    |> cast(attrs, [:is_admin, :is_super_admin, :is_vendor])
     |> validate_required([])
     |> update_change(:is_admin, &normalize_boolean/1)
     |> update_change(:is_super_admin, &normalize_boolean/1)
+    |> update_change(:is_vendor, &normalize_boolean/1)
   end
 
   # Helper to ensure boolean values are properly normalized

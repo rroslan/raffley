@@ -26,7 +26,6 @@ defmodule Raffley.Accounts do
     Repo.get_by(User, email: email)
   end
 
-
   @doc """
   Gets a single user.
 
@@ -119,7 +118,6 @@ defmodule Raffley.Accounts do
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, [context]))
   end
 
-
   ## Session
 
   @doc """
@@ -169,7 +167,6 @@ defmodule Raffley.Accounts do
     {:ok, query} = UserToken.verify_magic_link_token_query(token)
 
     case Repo.one(query) do
-
       {%User{confirmed_at: nil} = user, _token} ->
         user
         |> User.confirm_changeset()
@@ -235,6 +232,7 @@ defmodule Raffley.Accounts do
       {:ok, user, expired_tokens}
     end
   end
+
   @doc """
   Returns the list of all users.
 
@@ -245,7 +243,16 @@ defmodule Raffley.Accounts do
 
   """
   def list_users do
-    Repo.all(User)
+    users = Repo.all(User)
+    IO.puts("ACCOUNTS.list_users: Fetched #{length(users)} users")
+
+    Enum.each(users, fn user ->
+      IO.puts(
+        "User: #{user.email} - is_vendor: #{user.is_vendor}, is_admin: #{user.is_admin}, is_super_admin: #{user.is_super_admin}"
+      )
+    end)
+
+    users
   end
 
   @doc """
@@ -261,27 +268,31 @@ defmodule Raffley.Accounts do
 
   """
   def update_user_admin_status(%User{} = user, is_admin) do
-    IO.puts("ACCOUNTS: update_user_admin_status called - User ID: #{user.id}, Current is_admin: #{user.is_admin}")
+    IO.puts(
+      "ACCOUNTS: update_user_admin_status called - User ID: #{user.id}, Current is_admin: #{user.is_admin}"
+    )
+
     IO.puts("ACCOUNTS: Setting is_admin to: #{is_admin} (#{typeof(is_admin)})")
-    
+
     changeset = User.admin_changeset(user, %{is_admin: is_admin})
-    
+
     # Log changeset information
     IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+
     if !changeset.valid? do
       IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
     end
-    
+
     # Log changes
     changes = Ecto.Changeset.get_change(changeset, :is_admin)
     IO.puts("ACCOUNTS: Changes to is_admin: #{inspect(changes)}")
-    
+
     result = Repo.update(changeset)
     IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
-    
+
     result
   end
-  
+
   # Helper function to determine type for debugging
   defp typeof(term) do
     cond do
@@ -327,25 +338,29 @@ defmodule Raffley.Accounts do
 
   """
   def update_user_super_admin_status(acting_user, %User{} = target_user, is_super_admin) do
-    IO.puts("ACCOUNTS: update_user_super_admin_status called - User ID: #{target_user.id}, Current is_super_admin: #{target_user.is_super_admin}")
+    IO.puts(
+      "ACCOUNTS: update_user_super_admin_status called - User ID: #{target_user.id}, Current is_super_admin: #{target_user.is_super_admin}"
+    )
+
     IO.puts("ACCOUNTS: Setting is_super_admin to: #{is_super_admin} (#{typeof(is_super_admin)})")
-    
+
     if can_modify_user_status?(acting_user, target_user) do
       changeset = User.admin_changeset(target_user, %{is_super_admin: is_super_admin})
-      
+
       # Log changeset information
       IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+
       if !changeset.valid? do
         IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
       end
-      
+
       # Log changes
       changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
       IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
-      
+
       result = Repo.update(changeset)
       IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
-      
+
       result
     else
       IO.puts("ACCOUNTS: Cannot modify user (ID: #{target_user.id}). Operation unauthorized.")
@@ -377,39 +392,85 @@ defmodule Raffley.Accounts do
   @deprecated "Use update_user_super_admin_status/3 instead for proper authorization"
   """
   def update_user_super_admin_status(%User{} = user, is_super_admin) do
-    IO.puts("ACCOUNTS: update_user_super_admin_status/2 called - User ID: #{user.id}, Current is_super_admin: #{user.is_super_admin}")
+    IO.puts(
+      "ACCOUNTS: update_user_super_admin_status/2 called - User ID: #{user.id}, Current is_super_admin: #{user.is_super_admin}"
+    )
+
     IO.puts("ACCOUNTS: Setting is_super_admin to: #{is_super_admin} (#{typeof(is_super_admin)})")
-    
+
     # Get fresh user data to ensure we have the latest state
     fresh_user = Repo.get!(User, user.id)
-    
+
     # Enforce authorization rules from can_modify_user_status?/2:
     # Enforce authorization rules from can_modify_user_status?/2:
     # Cannot modify super admin users at all (!target_user.is_super_admin)
     if fresh_user.is_super_admin do
-      IO.puts("ACCOUNTS: Cannot modify super admin user (ID: #{fresh_user.id}). Operation unauthorized.")
+      IO.puts(
+        "ACCOUNTS: Cannot modify super admin user (ID: #{fresh_user.id}). Operation unauthorized."
+      )
+
       {:error, :unauthorized}
     else
       changeset = User.admin_changeset(fresh_user, %{is_super_admin: is_super_admin})
-      
+
       # Log changeset information
       IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+
       if !changeset.valid? do
         IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
       end
-      
+
       # Log changes
       changes = Ecto.Changeset.get_change(changeset, :is_super_admin)
       IO.puts("ACCOUNTS: Changes to is_super_admin: #{inspect(changes)}")
-      
+
       result = Repo.update(changeset)
       IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
-      
+
       result
     end
   end
 
   @doc """
+  Updates a user's vendor status.
+
+  ## Examples
+
+      iex> update_user_vendor_status(user, true)
+      {:ok, %User{}}
+
+      iex> update_user_vendor_status(user, false)
+      {:ok, %User{}}
+
+  """
+  def update_user_vendor_status(%User{} = user, is_vendor) do
+    IO.puts(
+      "ACCOUNTS: update_user_vendor_status called - User ID: #{user.id}, Current is_vendor: #{user.is_vendor}"
+    )
+
+    IO.puts("ACCOUNTS: Setting is_vendor to: #{is_vendor} (#{typeof(is_vendor)})")
+
+    changeset = User.admin_changeset(user, %{is_vendor: is_vendor})
+
+    # Log changeset information
+    IO.puts("ACCOUNTS: Changeset valid? #{changeset.valid?}")
+
+    if !changeset.valid? do
+      IO.puts("ACCOUNTS: Changeset errors: #{inspect(changeset.errors)}")
+    end
+
+    # Log changes
+    changes = Ecto.Changeset.get_change(changeset, :is_vendor)
+    IO.puts("ACCOUNTS: Changes to is_vendor: #{inspect(changes)}")
+
+    result = Repo.update(changeset)
+    IO.puts("ACCOUNTS: Repo.update result: #{inspect(result)}")
+
+    result
+  end
+
+  @doc """
+  Checks whether the given acting user can modify the status of the target user.
   Determines if a user can modify another user's admin status.
 
   Only super admins can modify other users' admin status, and they cannot modify
@@ -442,6 +503,24 @@ defmodule Raffley.Accounts do
   end
 
   @doc """
+  Returns the count of admin users (including super admins).
+  """
+  def count_admins do
+    User
+    |> where([u], u.is_admin == true or u.is_super_admin == true)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
+  Returns the count of vendor users.
+  """
+  def count_vendors do
+    User
+    |> where([u], u.is_vendor == true)
+    |> Repo.aggregate(:count)
+  end
+
+  @doc """
   Returns the count of admin users (excluding super admins).
   """
   def count_admin_users do
@@ -456,6 +535,25 @@ defmodule Raffley.Accounts do
   def count_super_admin_users do
     User
     |> where([u], u.is_super_admin == true)
-    |> Repo.aggregate(:count)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Counts the number of vendor users in the system.
+  """
+  def count_vendor_users do
+    User
+    |> where([u], u.is_vendor == true)
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  Lists all vendor users.
+  """
+  def list_vendor_users do
+    User
+    |> where([u], u.is_vendor == true)
+    |> order_by([u], asc: u.email)
+    |> Repo.all()
   end
 end
